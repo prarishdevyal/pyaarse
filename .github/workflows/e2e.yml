@@ -1,0 +1,61 @@
+name: Browser tests (live site)
+
+# Read-only checks: no orders, messages or sign-ups are ever submitted.
+on:
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Shop URL to test
+        default: https://www.pyaarse.net
+      admin_url:
+        description: Admin URL to test
+        default: https://admin.pyaarse.net
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      E2E_BASE_URL: ${{ inputs.base_url || vars.PRODUCTION_URL || 'https://www.pyaarse.net' }}
+      E2E_ADMIN_URL: ${{ inputs.admin_url || vars.ADMIN_PRODUCTION_URL || 'https://admin.pyaarse.net' }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start capturing Vercel runtime logs
+        run: |
+          npm install --global vercel@64.7.0
+          host="${E2E_BASE_URL#https://}"
+          (vercel logs "$host" --token="$VERCEL_TOKEN" > runtime.log 2>&1 &) || true
+      - name: Run browser tests
+        run: npx playwright test
+      - name: Vercel runtime logs during the tests
+        if: always()
+        run: |
+          sleep 5
+          pkill -f "vercel logs" || true
+          echo "::group::Vercel runtime logs"
+          cat runtime.log 2>/dev/null || echo "(no logs captured)"
+          echo "::endgroup::"
+          grep -iE "error|fail|unhandled|EMAXCONN" runtime.log 2>/dev/null | head -20 | sed 's/^/::warning::/' || true
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+            runtime.log
+          retention-days: 14

@@ -7,3 +7,5 @@ uploads
 next-env.d.ts
 .DS_Store
 .vercel
+/test-results
+/playwright-report

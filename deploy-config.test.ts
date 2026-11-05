@@ -36,4 +36,9 @@ describe("deployment config", () => {
     expect(workflow).not.toMatch(/vercel@latest/);
     expect(read("./.gitignore")).toMatch(/^\.vercel$/m);
   });
+
+  it("runs the read-only browser tests after every deploy", () => {
+    expect(read("./.github/workflows/deploy.yml")).toMatch(/e2e:\s*\n\s*needs: deploy\s*\n\s*uses: \.\/\.github\/workflows\/e2e\.yml/);
+    expect(read("./playwright.config.ts")).toMatch(/workers: process\.env\.CI \? 1/);
+  });
 });

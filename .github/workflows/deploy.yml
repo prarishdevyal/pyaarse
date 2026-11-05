@@ -16,11 +16,11 @@ env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
   VERCEL_CLI: vercel@64.7.0
-  SITE: ${{ vars.PRODUCTION_URL || 'https://pyaarse.vercel.app' }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -33,6 +33,7 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -54,25 +55,8 @@ jobs:
         run: |
           set -o pipefail
           vercel deploy --prod --logs --yes --token=${{ secrets.VERCEL_TOKEN }} 2>&1 | tee deploy.log
-          echo "url=$(grep -Eo 'https://[a-z0-9.-]+\.vercel\.app' deploy.log | tail -1)" >> "$GITHUB_OUTPUT"
-      - name: Smoke test the live site (runtime logs are captured below)
-        run: |
-          vercel logs "${{ steps.deploy.outputs.url }}" --token=${{ secrets.VERCEL_TOKEN }} > runtime.log 2>&1 &
-          LOGS=$!
-          sleep 5
-          failed=0
-          for path in / /shop /cart /checkout /contact /login /about /privacy /terms; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$SITE$path")
-            echo "$code $SITE$path"
-            [ "$code" = "200" ] || failed=1
-          done
-          sleep 10
-          kill $LOGS 2>/dev/null || true
-          echo "::group::Vercel runtime logs during the smoke test"
-          cat runtime.log
-          echo "::endgroup::"
-          if [ $failed = 1 ]; then
-            echo "::error::Some pages did not return 200. See the runtime logs above."
-            grep -iE "error|fail|unhandled" runtime.log | head -20 | sed 's/^/::error::/' || true
-            exit 1
-          fi
+
+  e2e:
+    needs: deploy
+    uses: ./.github/workflows/e2e.yml
+    secrets: inherit
