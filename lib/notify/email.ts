@@ -65,14 +65,34 @@ export function buildConfirmationEmail(o: OrderSummary): { subject: string; text
 
 export type EmailProvider = "resend" | "smtp" | "none";
 
-/** Resend when RESEND_API_KEY is set, else SMTP (Mailpit locally), else emails are only logged. */
+/** SMTP when SMTP_HOST is set, else Resend when RESEND_API_KEY is set, else emails are only logged. */
 export function emailProvider(env: Record<string, string | undefined> = process.env): EmailProvider {
-  if (env.RESEND_API_KEY) return "resend";
   if (env.SMTP_HOST) return "smtp";
+  if (env.RESEND_API_KEY) return "resend";
   return "none";
 }
 
-const from = () => process.env.MAIL_FROM ?? "Pyaarse <orders@pyaarse.net>";
+/** MAIL_FROM, else the SMTP login (Gmail and most hosts only send as the account itself). */
+export function mailFrom(env: Record<string, string | undefined> = process.env): string {
+  if (env.MAIL_FROM) return env.MAIL_FROM;
+  if (env.SMTP_HOST && env.SMTP_USER?.includes("@")) return `Pyaarse <${env.SMTP_USER}>`;
+  return "Pyaarse <orders@pyaarse.net>";
+}
+
+/** nodemailer options; timeouts keep a slow mail server from holding up checkout. */
+export function smtpOptions(env: Record<string, string | undefined> = process.env) {
+  const port = Number(env.SMTP_PORT || 587);
+  return {
+    host: env.SMTP_HOST,
+    port,
+    secure: port === 465,
+    auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  };
+}
+
 let transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
 let resend: Resend | null = null;
 
@@ -80,18 +100,13 @@ export async function sendEmail(to: string, msg: { subject: string; text: string
   const provider = emailProvider();
   if (provider === "resend") {
     resend ??= new Resend(process.env.RESEND_API_KEY);
-    const { error } = await resend.emails.send({ from: from(), to, ...msg });
+    const { error } = await resend.emails.send({ from: mailFrom(), to, ...msg });
     if (error) throw new Error(`Resend: ${error.name}: ${error.message}`);
     return;
   }
   if (provider === "smtp") {
-    transporter ??= nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT ?? 587),
-      secure: Number(process.env.SMTP_PORT) === 465,
-      auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
-    });
-    await transporter.sendMail({ from: from(), to, ...msg });
+    transporter ??= nodemailer.createTransport(smtpOptions());
+    await transporter.sendMail({ from: mailFrom(), to, ...msg });
     return;
   }
   console.warn(`[email] no email provider configured, skipping email to ${to}: ${msg.subject}`);

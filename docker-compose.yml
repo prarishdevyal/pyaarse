@@ -1,5 +1,5 @@
 services:
-  # Local test inbox, used only while RESEND_API_KEY is not set. Not for production.
+  # Local test inbox (SMTP_HOST=mailpit). Not for production.
   mailpit:
     restart: unless-stopped
     image: axllent/mailpit@sha256:9b3a463be15354c0f0eba91697d80e3e0d8a5623ef0e627cacc836bc17fd5231

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildContactTelegramMessage, buildTelegramMessage } from "./telegram";
-import { buildConfirmationEmail, emailProvider } from "./email";
+import { buildConfirmationEmail, emailProvider, mailFrom, smtpOptions } from "./email";
 import type { OrderSummary } from "./types";
 
 const order: OrderSummary = {
@@ -40,10 +40,27 @@ describe("buildConfirmationEmail", () => {
 });
 
 describe("emailProvider", () => {
-  it("prefers Resend, then SMTP, else none", () => {
-    expect(emailProvider({ RESEND_API_KEY: "re_x", SMTP_HOST: "mailpit" })).toBe("resend");
-    expect(emailProvider({ SMTP_HOST: "mailpit" })).toBe("smtp");
+  it("prefers SMTP, then Resend, else none", () => {
+    expect(emailProvider({ RESEND_API_KEY: "re_x", SMTP_HOST: "smtp.gmail.com" })).toBe("smtp");
+    expect(emailProvider({ RESEND_API_KEY: "re_x" })).toBe("resend");
     expect(emailProvider({})).toBe("none");
+  });
+});
+
+describe("mailFrom", () => {
+  it("uses MAIL_FROM, else sends as the SMTP account", () => {
+    expect(mailFrom({ MAIL_FROM: "Pyaarse <hi@pyaarse.net>", SMTP_HOST: "h", SMTP_USER: "a@gmail.com" })).toBe("Pyaarse <hi@pyaarse.net>");
+    expect(mailFrom({ SMTP_HOST: "smtp.gmail.com", SMTP_USER: "pyaarse@gmail.com" })).toBe("Pyaarse <pyaarse@gmail.com>");
+    expect(mailFrom({})).toBe("Pyaarse <orders@pyaarse.net>");
+  });
+});
+
+describe("smtpOptions", () => {
+  it("uses TLS on 465, STARTTLS port 587 by default, and times out", () => {
+    expect(smtpOptions({ SMTP_HOST: "smtp.gmail.com", SMTP_PORT: "465" })).toMatchObject({ port: 465, secure: true });
+    expect(smtpOptions({ SMTP_HOST: "h", SMTP_PORT: "" })).toMatchObject({ port: 587, secure: false, auth: undefined });
+    expect(smtpOptions({ SMTP_HOST: "h", SMTP_USER: "u", SMTP_PASS: "p" }).auth).toEqual({ user: "u", pass: "p" });
+    expect(smtpOptions({ SMTP_HOST: "h" })).toMatchObject({ connectionTimeout: 10_000, socketTimeout: 15_000 });
   });
 });
 

@@ -23,7 +23,7 @@ export default async function AdminSettingsPage() {
         <h2 className="mb-2 font-serif text-2xl">Notifications</h2>
         <p>Telegram alerts: <strong>{process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID ? "Connected" : "Not configured"}</strong></p>
         <p>Email provider: <strong>{provider === "smtp" ? PROVIDER_LABEL.smtp : PROVIDER_LABEL[provider]}</strong></p>
-        <p className="mt-2 text-xs text-taupe">These come from the server&apos;s environment variables (.env). Add RESEND_API_KEY to send real emails.</p>
+        <p className="mt-2 text-xs text-taupe">These come from the server&apos;s environment variables (.env). Set SMTP_HOST, SMTP_PORT, SMTP_USER and SMTP_PASS to send real emails.</p>
       </section>
     </div>
   );
