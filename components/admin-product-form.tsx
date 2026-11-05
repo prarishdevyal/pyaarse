@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { SlugField } from "@/components/slug-field";
 import { saveProduct } from "@/app/admin/actions";
 import { productFieldsSchema, variantProblems } from "@/lib/validation";
 import { useValidation } from "./use-validation";
@@ -50,10 +51,7 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
           <FormField id="name" label="Name" error={v.error("name")}>
             <input id="name" name="name" className="input" defaultValue={initial?.name} {...v.bind} {...invalidProps("name", v.error("name"))} />
           </FormField>
-          <div>
-            <label className="label" htmlFor="slug">URL slug <span className="font-normal text-taupe">(optional)</span></label>
-            <input id="slug" name="slug" className="input" defaultValue={initial?.slug} placeholder="auto from name" />
-          </div>
+          <SlugField id="slug" initialSlug={initial?.slug} nameInputId="name" path="/product/" saved={!!initial?.id} />
         </div>
         <FormField id="description" label="Description" error={v.error("description")}>
           <textarea id="description" name="description" rows={5} className="input" defaultValue={initial?.description} {...v.bind} {...invalidProps("description", v.error("description"))} />

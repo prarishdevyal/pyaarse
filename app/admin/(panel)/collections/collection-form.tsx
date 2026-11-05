@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { SlugField } from "@/components/slug-field";
 import { saveCollection } from "../../actions";
 import { collectionFieldsSchema } from "@/lib/validation";
 import { useValidation } from "@/components/use-validation";
@@ -27,10 +28,7 @@ export function CollectionForm({ initial }: { initial?: C }) {
       <FormField id={`${initial?.id ?? "new"}-tagline`} label="Tagline" error={v.error("tagline")}>
         <input {...p("tagline")} defaultValue={initial?.tagline} placeholder="Fresh, floral and uplifting." />
       </FormField>
-      <div>
-        <label className="label">URL slug <span className="font-normal text-taupe">(optional)</span></label>
-        <input name="slug" className="input" defaultValue={initial?.slug} placeholder="auto from name" />
-      </div>
+      <SlugField id={`${initial?.id ?? "new"}-slug`} initialSlug={initial?.slug} nameInputId={`${initial?.id ?? "new"}-name`} path="/shop?collection=" saved={!!initial} />
       <FormField id={`${initial?.id ?? "new"}-sortOrder`} label="Order on homepage" error={v.error("sortOrder")}>
         <input {...p("sortOrder")} inputMode="numeric" defaultValue={initial?.sortOrder ?? 0} />
       </FormField>
