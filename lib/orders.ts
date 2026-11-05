@@ -167,11 +167,12 @@ export async function getOrderSummary(orderId: number): Promise<OrderSummary | n
   };
 }
 
-export async function invoicePdfFor(summary: OrderSummary, invoiceDate = new Date()): Promise<Uint8Array> {
+export async function invoicePdfFor(summary: OrderSummary, paid: boolean, invoiceDate = new Date()): Promise<Uint8Array> {
   const store = storeContact();
   return buildInvoicePdf({
     ...summary,
     invoiceDate,
+    paid,
     store: { email: orderAlertEmail() ?? store.email, whatsapp: store.whatsapp, website: siteUrl().replace(/^https?:\/\//, "") },
   });
 }
@@ -182,7 +183,7 @@ export async function sendInvoice(orderId: number): Promise<{ ok: true } | { ok:
     const summary = await getOrderSummary(orderId);
     if (!summary) return { ok: false, error: "Order not found" };
     const no = invoiceNumber(summary.orderNumber);
-    const pdf = await invoicePdfFor(summary);
+    const pdf = await invoicePdfFor(summary, true);
     await sendEmail(summary.email, {
       ...buildInvoiceEmail(summary, no),
       attachments: [{ filename: `${no}.pdf`, content: pdf, contentType: "application/pdf" }],

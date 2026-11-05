@@ -7,6 +7,9 @@ import { ORDER_STATUSES } from "@/lib/db/schema";
 import { formatINR, STATUS_LABELS, toWhatsAppNumber, formatDateTime } from "@/lib/format";
 import { canChangeStatus } from "@/lib/order-status";
 import { StatusBadge } from "@/components/status-badge";
+import { ShareInvoiceButton } from "@/components/share-invoice-button";
+import { invoiceNumber } from "@/lib/invoice";
+import { invoiceWhatsAppText } from "@/lib/invoice-message";
 import { resendInvoice, updateOrderStatus } from "../../../actions";
 
 export default async function AdminOrderPage({
@@ -23,13 +26,12 @@ export default async function AdminOrderPage({
   if (!order) notFound();
   const items = await db.select().from(schema.orderItems).where(eq(schema.orderItems.orderId, id));
   const { invoice, reason } = await searchParams;
-  const hasInvoice = order.status === "paid" || order.status === "shipped" || order.status === "delivered";
+  const paid = order.status === "paid" || order.status === "shipped" || order.status === "delivered";
+  const invoiceFile = `${invoiceNumber(order.orderNumber)}.pdf`;
   const options = ORDER_STATUSES.filter((s) => canChangeStatus(order.status, s));
   const NEXT: Partial<Record<string, string>> = { pending_payment: "paid", paid: "shipped", shipped: "delivered" };
   const suggested = NEXT[order.status] ?? options[0];
-  const waText = encodeURIComponent(
-    `Hi ${order.customerName}, thank you for your Pyaarse order ${order.orderNumber}! Your total is ${formatINR(order.total)}. Please scan the QR below to pay.`,
-  );
+  const waMessage = invoiceWhatsAppText({ customerName: order.customerName, orderNumber: order.orderNumber, total: order.total, paid });
 
   return (
     <div className="space-y-6">
@@ -79,24 +81,38 @@ export default async function AdminOrderPage({
         </div>
 
         <aside className="space-y-4">
-          <a
-            href={`https://wa.me/${toWhatsAppNumber(order.phone)}?text=${waText}`}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-primary w-full bg-[#1f8f4e] hover:bg-[#177040]"
-          >
-            Message on WhatsApp
-          </a>
-          {hasInvoice && (
+          {order.status !== "cancelled" && (
             <div className="card space-y-3 bg-white p-5">
-              <h2 className="font-serif text-xl">Invoice</h2>
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="font-serif text-xl">Invoice</h2>
+                <span className="text-sm text-taupe">{invoiceNumber(order.orderNumber)}</span>
+              </div>
+              <p className="text-sm">
+                {paid ? "Paid" : "Amount to pay"}: <strong className="text-brand">{formatINR(order.total)}</strong>
+              </p>
+              <ShareInvoiceButton
+                pdfUrl={`/orders/${order.id}/invoice`}
+                filename={invoiceFile}
+                waNumber={toWhatsAppNumber(order.phone)}
+                message={waMessage}
+              />
               <a href={`/orders/${order.id}/invoice`} target="_blank" rel="noreferrer" className="btn-secondary w-full">View invoice (PDF)</a>
-              <form action={resendInvoice}>
-                <input type="hidden" name="id" value={order.id} />
-                <button className="w-full text-sm text-brand underline underline-offset-4">Resend invoice to customer</button>
-              </form>
+              {paid && (
+                <form action={resendInvoice}>
+                  <input type="hidden" name="id" value={order.id} />
+                  <button className="w-full text-sm text-brand underline underline-offset-4">Resend invoice email</button>
+                </form>
+              )}
             </div>
           )}
+          <a
+            href={`https://wa.me/${toWhatsAppNumber(order.phone)}?text=${encodeURIComponent(waMessage)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="block text-center text-sm text-[#1f8f4e] underline underline-offset-4"
+          >
+            Open WhatsApp chat without the invoice
+          </a>
           <div className="card bg-white p-5">
             <h2 className="mb-3 font-serif text-xl">Update status</h2>
             {options.length === 0 ? (

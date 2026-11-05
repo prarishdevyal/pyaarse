@@ -2,7 +2,18 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import type { OrderSummary } from "./notify/types";
 import { STORE_TIME_ZONE } from "./format";
 
-export type InvoiceData = OrderSummary & { invoiceDate: Date; store: { email: string; whatsapp: string; website: string } };
+export type InvoiceData = OrderSummary & {
+  invoiceDate: Date;
+  paid: boolean;
+  store: { email: string; whatsapp: string; website: string };
+};
+
+/** Wording for a paid invoice vs. one the admin sends before payment. */
+export function invoiceLabels(paid: boolean) {
+  return paid
+    ? { status: "Paid", total: "Total paid", note: "" }
+    : { status: "Payment due", total: "Amount to pay", note: "Please pay using the payment QR code we send you on WhatsApp. Your order is prepared once payment is received." };
+}
 
 export const invoiceNumber = (orderNumber: string) => `INV-${orderNumber}`;
 
@@ -47,6 +58,7 @@ export async function buildInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Pyaarse invoice ${invoiceNumber(d.orderNumber)}`);
   pdf.setAuthor("Pyaarse");
+  const labels = invoiceLabels(d.paid);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const serif = await pdf.embedFont(StandardFonts.TimesRomanItalic);
@@ -85,7 +97,7 @@ export async function buildInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
   text("PAYMENT", W - M, { font: bold, size: 9, color: MUTED, right: true });
   y -= 15;
   text(d.customerName, M, { font: bold, size: 11 });
-  text("Paid", W - M, { font: bold, size: 11, color: BRAND, right: true });
+  text(labels.status, W - M, { font: bold, size: 11, color: BRAND, right: true });
   y -= 14;
   for (const l of wrapText(pdfSafe(`${d.addressLine}, ${d.city}, ${d.state} - ${d.pincode}`), 300, (s) => regular.widthOfTextAtSize(s, 10))) {
     text(l, M);
@@ -129,7 +141,15 @@ export async function buildInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
   total("Subtotal", pdfMoney(d.subtotal));
   total("Shipping", d.shipping === 0 ? "Free" : pdfMoney(d.shipping));
   y -= 4;
-  total("Total paid", pdfMoney(d.total), true);
+  total(labels.total, pdfMoney(d.total), true);
+  if (labels.note) {
+    y -= 10;
+    ensure(40);
+    for (const l of wrapText(labels.note, W - 2 * M, (s) => regular.widthOfTextAtSize(s, 10))) {
+      text(l, M, { color: BRAND });
+      y -= 13;
+    }
+  }
 
   y -= 30;
   ensure(40);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
-import { buildInvoicePdf, invoiceNumber, pdfMoney, pdfSafe, wrapText } from "./invoice";
+import { buildInvoicePdf, invoiceLabels, invoiceNumber, pdfMoney, pdfSafe, wrapText } from "./invoice";
 
 const data = {
   orderNumber: "PY1042", customerName: "Asha Rao", email: "asha@example.com", phone: "9876543210",
@@ -8,6 +8,7 @@ const data = {
   subtotal: 998, shipping: 0, total: 998,
   items: [{ productName: "Rose Candle", variantName: "200g", unitPrice: 499, quantity: 2 }],
   invoiceDate: new Date("2026-11-05T10:00:00Z"),
+  paid: true,
   store: { email: "info@pyaarse.net", whatsapp: "919876543210", website: "www.pyaarse.net" },
 };
 
@@ -25,7 +26,19 @@ describe("invoice helpers", () => {
   });
 });
 
+describe("invoiceLabels", () => {
+  it("shows the amount to pay before payment and 'paid' after", () => {
+    expect(invoiceLabels(false)).toMatchObject({ status: "Payment due", total: "Amount to pay" });
+    expect(invoiceLabels(false).note).toContain("payment QR");
+    expect(invoiceLabels(true)).toEqual({ status: "Paid", total: "Total paid", note: "" });
+  });
+});
+
 describe("buildInvoicePdf", () => {
+  it("builds an unpaid invoice too", async () => {
+    const doc = await PDFDocument.load(await buildInvoicePdf({ ...data, paid: false }));
+    expect(doc.getPageCount()).toBe(1);
+  });
   it("builds a valid PDF", async () => {
     const bytes = await buildInvoicePdf(data);
     expect(new TextDecoder().decode(bytes.slice(0, 5))).toBe("%PDF-");
