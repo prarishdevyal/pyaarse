@@ -1,0 +1,93 @@
+import { z } from "zod";
+import { MAX_CART_LINES, MAX_QTY_PER_VARIANT } from "./pricing";
+import { isIndianState } from "./india";
+
+/** Single-line text: collapses newlines/tabs so customers can't add fake lines to emails or alerts. */
+const line = (min: number, max: number, msg: string) =>
+  z.string().transform((v) => v.replace(/\s+/g, " ").trim()).pipe(z.string().min(min, msg).max(max));
+
+const cartItems = z
+  .array(z.object({ variantId: z.number().int().positive(), quantity: z.number().int().min(1).max(MAX_QTY_PER_VARIANT) }))
+  .max(MAX_CART_LINES, "Too many items in cart.");
+const noDuplicates = (a: { variantId: number }[]) => new Set(a.map((i) => i.variantId)).size === a.length;
+
+export const cartItemsSchema = cartItems.refine(noDuplicates, "Duplicate items in cart.");
+
+export const checkoutSchema = z.object({
+  customerName: line(2, 100, "Please enter your name"),
+  email: z.string().trim().toLowerCase().pipe(z.email("Please enter a valid email")),
+  phone: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[\s-]/g, ""))
+    .pipe(z.string().regex(/^(\+91|91|0)?[6-9]\d{9}$/, "Please enter a valid 10-digit mobile number")),
+  addressLine: line(5, 300, "Please enter your full address"),
+  city: line(2, 80, "Please enter your city"),
+  state: z.string().trim().refine(isIndianState, "Please choose your state"),
+  pincode: z.string().trim().regex(/^\d{6}$/, "Pincode must be 6 digits"),
+  notes: z.string().trim().max(500).default(""),
+  items: cartItems.min(1, "Your cart is empty.").refine(noDuplicates, "Duplicate items in cart."),
+});
+
+export type CheckoutInput = z.infer<typeof checkoutSchema>;
+
+/** Checkout fields the customer types (everything except the cart), for live validation in the browser. */
+export const checkoutFieldsShape = checkoutSchema.omit({ items: true }).shape;
+
+export const registerSchema = z.object({
+  name: line(2, 100, "Please enter your name"),
+  email: z.string().trim().toLowerCase().pipe(z.email("Please enter a valid email")),
+  password: z.string().min(8, "Password must be at least 8 characters").max(72, "Password must be at most 72 characters"),
+});
+
+export const loginSchema = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email("Please enter a valid email")),
+  password: z.string().min(1, "Please enter your password").max(200),
+});
+
+export const contactSchema = z.object({
+  name: line(2, 100, "Please enter your name"),
+  email: z.string().trim().toLowerCase().pipe(z.email("Please enter a valid email")),
+  phone: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[\s-]/g, ""))
+    .pipe(z.union([z.literal(""), z.string().regex(/^(\+91|91|0)?[6-9]\d{9}$/, "Please enter a valid 10-digit mobile number")]))
+    .default(""),
+  message: z.string().trim().min(10, "Please write a little more (at least 10 characters)").max(2000, "Please keep it under 2000 characters"),
+  // Hidden from people; bots tend to fill it in.
+  website: z.string().max(0).optional().default(""),
+});
+
+const rupees = (label: string) => z.string().trim().regex(/^\d{1,7}$/, `${label} must be a whole rupee amount (0 or more)`);
+
+export const settingsSchema = z.object({
+  shippingFee: rupees("Shipping fee"),
+  freeShippingThreshold: rupees("Free-shipping amount"),
+});
+
+export const collectionFieldsSchema = z.object({
+  name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
+  tagline: z.string().trim().max(200, "Keep the tagline under 200 characters"),
+  sortOrder: z.string().trim().regex(/^-?\d{1,4}$/, "Order must be a whole number"),
+});
+
+export const productFieldsSchema = z.object({
+  name: z.string().trim().min(2, "Name must be at least 2 characters").max(150),
+  description: z.string().trim().max(5000, "Keep the description under 5000 characters"),
+});
+
+/** Problems with the variant rows, keyed by row index (empty = all fine). */
+export function variantProblems(variants: { name: string; price: number; stock: number }[]): Record<number, string> {
+  const out: Record<number, string> = {};
+  variants.forEach((v, i) => {
+    if (!v.name.trim()) out[i] = "Give this variant a name, e.g. 200g.";
+    else if (!Number.isInteger(v.price) || v.price < 1) out[i] = "Price must be at least ₹1.";
+    else if (!Number.isInteger(v.stock) || v.stock < 0) out[i] = "Stock can't be negative.";
+  });
+  const names = variants.map((v) => v.name.trim().toLowerCase());
+  names.forEach((n, i) => {
+    if (n && names.indexOf(n) !== i && !out[i]) out[i] = "Two variants have the same name.";
+  });
+  return out;
+}

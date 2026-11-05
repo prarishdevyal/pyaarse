@@ -1,0 +1,160 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #89211e;
+  --color-burgundy: #5e1716;
+  --color-ivory: #fffdf6;
+  --color-charcoal: #29292a;
+  --color-blush: #f3e7e3;
+  --color-sand: #d8c6b8;
+  --color-taupe: #8b817a;
+
+  --font-serif: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+
+  --shadow-soft: 0 6px 24px -10px rgb(94 23 22 / 0.18);
+}
+
+@layer base {
+  body {
+    @apply bg-ivory text-charcoal font-sans antialiased;
+  }
+  h1, h2, h3 {
+    @apply font-serif;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-[1200px] px-4 sm:px-6;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand px-6 py-3 text-sm font-medium text-ivory transition hover:bg-burgundy disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-brand px-6 py-3 text-sm font-medium text-brand transition hover:bg-blush disabled:opacity-50;
+  }
+  .card {
+    @apply rounded-[14px] border border-sand/60 bg-white/60 shadow-soft;
+  }
+  .input {
+    @apply w-full rounded-xl border border-sand bg-white px-4 py-2.5 text-sm outline-none transition placeholder:text-taupe focus:border-brand focus:ring-2 focus:ring-brand/15;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium;
+  }
+  .heading-xl {
+    @apply font-serif text-5xl italic leading-[1.05] text-brand sm:text-6xl;
+  }
+  .heading-section {
+    @apply font-serif text-4xl italic text-brand;
+  }
+}
+
+@layer base {
+  /* Lucide icons, drawn with the brand's fine line */
+  svg.lucide {
+    stroke-width: 1.6;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Long-form pages (privacy, terms) */
+  .prose-legal {
+    @apply max-w-[68ch] text-[17px] leading-[1.75] text-charcoal/90;
+  }
+  .prose-legal h2 {
+    @apply mt-12 mb-3 scroll-mt-28 font-serif text-[28px] leading-tight text-brand;
+  }
+  .prose-legal p {
+    @apply my-4;
+  }
+  .prose-legal ul {
+    @apply my-4 list-disc space-y-2 pl-6 marker:text-brand;
+  }
+  .prose-legal strong {
+    @apply font-medium text-charcoal;
+  }
+}
+
+@layer components {
+  .input[aria-invalid="true"] {
+    @apply border-brand bg-blush/40 focus:ring-brand/25;
+  }
+  select.input {
+    @apply appearance-none bg-[length:16px] bg-[right_0.9rem_center] bg-no-repeat pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2389211E' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+}
+
+/* ---------- Motion ----------
+   One orchestrated page-load moment (hero) + motion that answers the user's actions.
+   Critically damped curves (no overshoot) except tiny pops on taps. All off under prefers-reduced-motion. */
+@theme {
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes settle {
+  from { opacity: 0; transform: scale(1.06); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+@keyframes drop {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@layer utilities {
+  .anim-rise { animation: rise 0.8s var(--ease-settle) both; animation-delay: var(--delay, 0ms); }
+  .anim-settle { animation: settle 1.4s var(--ease-settle) both; }
+  .anim-pop { animation: pop 0.35s var(--ease-pop); }
+  .anim-drop { animation: drop 0.25s var(--ease-settle) both; }
+  .anim-fade { animation: fade 0.2s ease-out both; }
+}
+
+@layer components {
+  /* Instant press feedback (on pointer-down, not release) */
+  .btn-primary, .btn-secondary {
+    transition-property: color, background-color, border-color, transform, box-shadow;
+    transition-duration: 150ms;
+  }
+  .btn-primary:active:not(:disabled), .btn-secondary:active:not(:disabled) {
+    transform: scale(0.97);
+    transition-duration: 80ms;
+  }
+  /* FAQ answers ease open */
+  details[open] > :not(summary) {
+    animation: drop 0.3s var(--ease-settle) both;
+  }
+  /* Inline form errors appear softly instead of popping in */
+  [role="alert"] {
+    animation: fade 0.2s ease-out both;
+  }
+}

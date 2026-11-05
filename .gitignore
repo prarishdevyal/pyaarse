@@ -1,0 +1,8 @@
+.env*
+!.env.example
+node_modules
+.next
+uploads
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store

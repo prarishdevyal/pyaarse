@@ -1,0 +1,18 @@
+services:
+  # Local test inbox, used only while RESEND_API_KEY is not set. Not for production.
+  mailpit:
+    restart: unless-stopped
+    image: axllent/mailpit@sha256:9b3a463be15354c0f0eba91697d80e3e0d8a5623ef0e627cacc836bc17fd5231
+    ports:
+      - "127.0.0.1:8025:8025" # inbox UI: http://localhost:8025
+      - "127.0.0.1:1025:1025"
+
+  app:
+    restart: unless-stopped
+    build: .
+    env_file: .env # Supabase, Resend/SMTP, admin, Telegram etc. all come from here
+    ports:
+      - "3000:3000"
+    depends_on:
+      mailpit:
+        condition: service_started

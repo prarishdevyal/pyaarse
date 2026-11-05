@@ -1,0 +1,54 @@
+import Link from "next/link";
+import { requireAdmin } from "@/lib/auth";
+import { asc, desc, eq } from "drizzle-orm";
+import { db, schema } from "@/lib/db";
+import { formatINR } from "@/lib/format";
+import { PRODUCT_PLACEHOLDER } from "@/lib/catalog";
+
+export const metadata = { title: "Products" };
+
+export default async function AdminProductsPage() {
+  await requireAdmin();
+  const [products, variants] = await Promise.all([
+    db.select({ p: schema.products, collection: schema.collections.name })
+      .from(schema.products)
+      .leftJoin(schema.collections, eq(schema.collections.id, schema.products.collectionId))
+      .orderBy(desc(schema.products.createdAt)),
+    db.select().from(schema.productVariants).orderBy(asc(schema.productVariants.sortOrder)),
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="font-serif text-4xl text-brand">Products</h1>
+        <Link href="/products/new" className="btn-primary">+ Add product</Link>
+      </div>
+      {products.length === 0 ? (
+        <p className="py-8 text-center text-taupe">No products yet. Add your first candle!</p>
+      ) : (
+        <div className="card divide-y divide-sand/40 bg-white">
+          {products.map(({ p, collection }) => {
+            const vs = variants.filter((v) => v.productId === p.id);
+            return (
+              <Link key={p.id} href={`/products/${p.id}`} className="flex items-center gap-4 p-4 hover:bg-blush/40">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.images[0] ?? PRODUCT_PLACEHOLDER} alt="" className="h-14 w-14 rounded-lg object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">
+                    {p.name}
+                    {!p.isActive && <span className="ml-2 rounded bg-stone-200 px-2 py-0.5 text-xs text-stone-700">Hidden</span>}
+                    {p.isBestseller && <span className="ml-2 rounded bg-blush px-2 py-0.5 text-xs text-brand">Bestseller</span>}
+                  </p>
+                  <p className="truncate text-xs text-taupe">
+                    {collection ?? "No collection"} · {vs.map((v) => `${v.name} ${formatINR(v.price)} (${v.stock})`).join(" · ") || "No variants"}
+                  </p>
+                </div>
+                <span className="text-sm text-taupe">Edit →</span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
