@@ -1,0 +1,55 @@
+name: Vercel deployments (status / cancel stuck)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "status = list deployments and show logs of unfinished ones; cancel-stuck = cancel queued/building ones older than 5 minutes"
+        type: choice
+        options: [status, cancel-stuck]
+        default: status
+
+permissions:
+  contents: read
+
+jobs:
+  ops:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      PROJECT: ${{ secrets.VERCEL_PROJECT_ID }}
+      ORG: ${{ secrets.VERCEL_ORG_ID }}
+    steps:
+      - name: ${{ inputs.action }}
+        run: |
+          api() { # tries with the team id first, then as a personal account
+            local method=$1 path=$2 sep='?'; [[ $path == *\?* ]] && sep='&'
+            out=$(curl -sS -X "$method" -H "Authorization: Bearer $TOKEN" "https://api.vercel.com$path${sep}teamId=$ORG")
+            if echo "$out" | jq -e '.error' >/dev/null 2>&1; then
+              out=$(curl -sS -X "$method" -H "Authorization: Bearer $TOKEN" "https://api.vercel.com$path")
+            fi
+            echo "$out"
+          }
+          deps=$(api GET "/v6/deployments?projectId=$PROJECT&limit=15")
+          echo "$deps" | jq -e '.deployments' >/dev/null || { echo "::error::Vercel API: $(echo "$deps" | jq -c '.error')"; exit 1; }
+          echo "## Latest deployments"
+          echo "$deps" | jq -r '.deployments[] | "\(.state // .readyState)\t\(.target // "preview")\t\((.created/1000)|todate)\t\(.url)\t\(.uid)"' | column -t -s $'\t'
+
+          stuck=$(echo "$deps" | jq -r --argjson now "$(date +%s)" '.deployments[] | select((.state // .readyState) as $s | ["QUEUED","BUILDING","INITIALIZING"] | index($s)) | select(($now - .created/1000) > 300) | .uid')
+          unfinished=$(echo "$deps" | jq -r '.deployments[] | select((.state // .readyState) as $s | ["QUEUED","BUILDING","INITIALIZING","ERROR"] | index($s)) | .uid' | head -5)
+
+          if [ "${{ inputs.action }}" = "status" ]; then
+            for id in $unfinished; do
+              echo "::group::Build log of $id"
+              api GET "/v3/deployments/$id/events?limit=200" | jq -r '.[]? | (.payload.text // .text // empty)' | tail -80
+              api GET "/v13/deployments/$id" | jq -r '"state=\(.readyState) substate=\(.readySubstate // "") error=\(.errorCode // "") \(.errorMessage // "")"'
+              echo "::endgroup::"
+            done
+            echo "Stuck for over 5 minutes: ${stuck:-none}"
+          else
+            [ -z "$stuck" ] && { echo "Nothing stuck."; exit 0; }
+            for id in $stuck; do
+              echo "Cancelling $id: $(api PATCH "/v12/deployments/$id/cancel" | jq -r '.readyState // .error.message // "done"')"
+            done
+          fi
