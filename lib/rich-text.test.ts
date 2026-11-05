@@ -16,3 +16,11 @@ describe("parseRichText", () => {
   });
   it("handles text without bold markers", () => expect(parseInline("plain")).toEqual([{ text: "plain", bold: false }]));
 });
+
+describe("parseInline in product descriptions", () => {
+  it("bolds **text** without crossing line breaks", () => {
+    const parts = parseInline("Bring home the **Lotus Pond Set** today.\nMade with **love");
+    expect(parts.filter((p) => p.bold).map((p) => p.text)).toEqual(["Lotus Pond Set"]);
+    expect(parts.map((p) => p.text).join("")).toBe("Bring home the Lotus Pond Set today.\nMade with **love");
+  });
+});

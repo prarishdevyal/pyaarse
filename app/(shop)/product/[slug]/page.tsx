@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { parseInline } from "@/lib/rich-text";
 import { getContent } from "@/lib/content";
 import { notFound } from "next/navigation";
 import { getProductBySlug } from "@/lib/catalog";
@@ -22,7 +23,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <> / <Link href={`/shop?collection=${product.collection.slug}`} className="hover:text-brand">{product.collection.name}</Link></>
         )}
       </nav>
-      <div className="grid gap-10 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
         <ProductGallery images={product.images} name={product.name} />
         <div>
           <h1 className="font-serif text-4xl text-brand sm:text-5xl">{product.name}</h1>
@@ -33,7 +34,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           {product.description && (
             <div className="mt-10 border-t border-sand/70 pt-6">
               <h2 className="font-serif text-2xl">{t("product.about")}</h2>
-              <p className="mt-3 whitespace-pre-line leading-relaxed text-charcoal/85">{product.description}</p>
+              <p className="mt-3 whitespace-pre-line leading-relaxed text-charcoal/85">
+                {parseInline(product.description).map((part, i) => (part.bold ? <strong key={i} className="font-semibold text-charcoal">{part.text}</strong> : <span key={i}>{part.text}</span>))}
+              </p>
             </div>
           )}
         </div>

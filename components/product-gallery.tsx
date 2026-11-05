@@ -18,7 +18,7 @@ export function ProductGallery({ images, name }: { images: string[]; name: strin
   const goTo = (i: number) => track.current?.scrollTo({ left: i * track.current.clientWidth, behavior: "smooth" });
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       <div className="relative">
         <div
           ref={track}
