@@ -3,6 +3,7 @@
  * An empty value in the editor means "use the default".
  */
 import { DEFAULT_PRIVACY, DEFAULT_TERMS } from "./legal-defaults";
+import { isAllowedImageUrl } from "./images";
 
 export type ContentKind = "line" | "text" | "long";
 export type ContentField = { key: string; label: string; kind: ContentKind; default: string; hint?: string };
@@ -269,3 +270,12 @@ export function cleanContentEdits(input: Record<string, unknown>): { set: Record
 
 /** Labels the in-browser parts of the shop need (cart, wishlist, add-to-cart). Sent down from the layout. */
 export const CLIENT_TEXT_KEYS = CONTENT_GROUPS.filter((g) => g.id === "product" || g.id === "cart").flatMap((g) => g.fields.map((f) => f.key));
+
+/** The home page photo is uploaded in Site text → Home: top banner and stored under this key (not a text field). */
+export const HERO_IMAGE_KEY = "home.hero.image";
+export const DEFAULT_HERO_IMAGE = "/placeholders/hero.jpg";
+
+/** The uploaded hero photo if it's one of our own images, else the original photo. */
+export function heroImageUrl(stored: string | undefined, supabaseUrl: string | undefined): string {
+  return stored && isAllowedImageUrl(stored, supabaseUrl) ? stored : DEFAULT_HERO_IMAGE;
+}

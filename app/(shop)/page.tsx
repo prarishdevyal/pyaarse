@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HERO_IMAGE_KEY, heroImageUrl } from "@/lib/content-defaults";
 import { getCollections, getProductCards } from "@/lib/catalog";
 import { getContent } from "@/lib/content";
 import { getStoreContact } from "@/lib/settings";
@@ -25,7 +26,7 @@ export default async function HomePage() {
     .map((n) => ({ q: t(`home.faq.${n}.q`), a: t(`home.faq.${n}.a`) }))
     .filter((f) => f.q && f.a);
   const [titleFirst, ...titleRest] = t("home.hero.title").split("\n");
-  const heroImage = "/placeholders/hero.jpg";
+  const heroImage = heroImageUrl(t(HERO_IMAGE_KEY), process.env.SUPABASE_URL);
 
   return (
     <>

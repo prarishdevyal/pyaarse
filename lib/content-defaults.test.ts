@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONTENT_FIELDS, CONTENT_GROUPS, cleanContentEdits, contentLookup } from "./content-defaults";
+import { CONTENT_FIELDS, CONTENT_GROUPS, DEFAULT_HERO_IMAGE, HERO_IMAGE_KEY, cleanContentEdits, contentLookup, heroImageUrl } from "./content-defaults";
 
 describe("site content", () => {
   it("has unique keys", () => {
@@ -27,5 +27,24 @@ describe("site content", () => {
   it("ships non-empty legal pages by default", () => {
     expect(CONTENT_FIELDS.get("legal.privacy")!.default).toMatch(/## What we collect/);
     expect(CONTENT_FIELDS.get("legal.terms")!.default).toMatch(/## Orders/);
+  });
+});
+
+describe("hero image", () => {
+  const supa = "https://abc.supabase.co";
+  const uploaded = `${supa}/storage/v1/object/public/product-images/0123456789abcdef01234567.webp`;
+  it("uses the uploaded photo, else the original", () => {
+    expect(heroImageUrl(uploaded, supa)).toBe(uploaded);
+    expect(heroImageUrl(undefined, supa)).toBe(DEFAULT_HERO_IMAGE);
+    expect(heroImageUrl("", supa)).toBe(DEFAULT_HERO_IMAGE);
+  });
+  it("ignores anything that isn't one of our images", () => {
+    expect(heroImageUrl("https://evil.example/x.jpg", supa)).toBe(DEFAULT_HERO_IMAGE);
+    expect(heroImageUrl("javascript:alert(1)", supa)).toBe(DEFAULT_HERO_IMAGE);
+  });
+  it("is never touched by the text form", () => {
+    const r = cleanContentEdits({ [HERO_IMAGE_KEY]: "https://evil.example/x.jpg" });
+    expect(r.set).toEqual({});
+    expect(r.clear).toEqual([]);
   });
 });

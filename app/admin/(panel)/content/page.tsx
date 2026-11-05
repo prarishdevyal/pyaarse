@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { CONTENT_GROUPS } from "@/lib/content-defaults";
+import { CONTENT_GROUPS, HERO_IMAGE_KEY, heroImageUrl } from "@/lib/content-defaults";
 import { getContentOverrides } from "@/lib/content";
 import { ContentForm } from "./content-form";
+import { HeroImageForm } from "./hero-image-form";
 
 export const metadata = { title: "Site text" };
 
@@ -35,11 +36,16 @@ export default async function AdminContentPage({ searchParams }: { searchParams:
             </Link>
           ))}
         </nav>
-        <ContentForm
-          key={group.id}
-          title={group.title}
-          fields={group.fields.map((f) => ({ ...f, value: overrides[f.key] ?? f.default }))}
-        />
+        <div className="min-w-0 space-y-6">
+          {group.id === "home-hero" && (
+            <HeroImageForm current={heroImageUrl(overrides[HERO_IMAGE_KEY], process.env.SUPABASE_URL)} custom={!!overrides[HERO_IMAGE_KEY]} />
+          )}
+          <ContentForm
+            key={group.id}
+            title={group.title}
+            fields={group.fields.map((f) => ({ ...f, value: overrides[f.key] ?? f.default }))}
+          />
+        </div>
       </div>
     </div>
   );

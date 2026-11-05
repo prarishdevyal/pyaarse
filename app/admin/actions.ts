@@ -18,7 +18,7 @@ import { removeImages, saveImage } from "@/lib/uploads";
 import { couponSchema, forgotPasswordSchema, inviteAdminSchema, loginSchema, setAdminPasswordSchema, settingsSchema, variantProblems } from "@/lib/validation";
 import { inviteAdmin, setUserRole } from "@/lib/users";
 import { resetSentMessage, sendPasswordResetLink } from "@/lib/password-reset";
-import { cleanContentEdits } from "@/lib/content-defaults";
+import { cleanContentEdits, HERO_IMAGE_KEY } from "@/lib/content-defaults";
 import { inArray } from "drizzle-orm";
 import type { FormState } from "@/app/actions";
 
@@ -342,6 +342,33 @@ export async function saveSettings(_prev: FormState, formData: FormData): Promis
 }
 
 // ---------- Site text ----------
+
+/** Home page photo: upload replaces the current one (and deletes the old file); reset goes back to the original. */
+export async function saveHeroImage(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a photo first." };
+  let url: string;
+  try {
+    url = await saveImage(file);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  const old = await db.query.siteContent.findFirst({ where: eq(schema.siteContent.key, HERO_IMAGE_KEY) });
+  await db
+    .insert(schema.siteContent)
+    .values({ key: HERO_IMAGE_KEY, value: url })
+    .onConflictDoUpdate({ target: schema.siteContent.key, set: { value: url, updatedAt: new Date() } });
+  if (old?.value && old.value !== url) await removeImages([old.value]);
+  return { success: "Saved. The new photo is live on the home page." };
+}
+
+export async function resetHeroImage() {
+  await requireAdmin();
+  const [old] = await db.delete(schema.siteContent).where(eq(schema.siteContent.key, HERO_IMAGE_KEY)).returning();
+  if (old?.value) await removeImages([old.value]);
+  redirect("/content?section=home-hero");
+}
 
 export async function saveContent(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
