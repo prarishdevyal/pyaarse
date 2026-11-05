@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSiteText } from "@/components/site-text";
 import { useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { useWishlist } from "@/components/wishlist-provider";
@@ -14,6 +15,7 @@ type Variant = { id: number; name: string; price: number; compareAtPrice: number
 
 export function AddToCart({ product, variants }: { product: { id: number; name: string; slug: string; image: string }; variants: Variant[] }) {
   const { add, items } = useCart();
+  const t = useSiteText();
   const { has, toggle } = useWishlist();
   const [selectedId, setSelectedId] = useState(variants.find((v) => v.stock > 0)?.id ?? variants[0]?.id);
   const [qty, setQty] = useState(1);
@@ -21,7 +23,7 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
   const [addedCount, setAddedCount] = useState(0);
   const selected = variants.find((v) => v.id === selectedId);
 
-  if (!selected) return <p className="mt-6 text-taupe">Coming soon.</p>;
+  if (!selected) return <p className="mt-6 text-taupe">{t("product.comingSoon")}</p>;
 
   const inCart = items.find((i) => i.variantId === selected.id)?.quantity ?? 0;
   const maxQty = Math.max(0, Math.min(selected.stock, MAX_QTY_PER_VARIANT) - inCart);
@@ -48,7 +50,7 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
 
       {variants.length > 1 && (
         <div className="mt-6">
-          <p className="label">Choose an option</p>
+          <p className="label">{t("product.chooseOption")}</p>
           <div className="flex flex-wrap gap-2">
             {variants.map((v) => (
               <button
@@ -67,7 +69,7 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
       )}
 
       <p className="mt-4 text-sm text-taupe">
-        {selected.stock === 0 ? "Out of stock" : selected.stock <= 5 ? `Only ${selected.stock} left` : "In stock"}
+        {selected.stock === 0 ? t("product.outOfStock") : selected.stock <= 5 ? t("product.lowStock", { n: selected.stock }) : t("product.inStock")}
       </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -77,7 +79,7 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
           <button className="step-btn px-4 py-3 disabled:opacity-40" onClick={() => setQty((q) => q + 1)} disabled={qty >= maxQty} aria-label="Increase">+</button>
         </div>
         <button className="btn-primary flex-1 sm:flex-none sm:px-12" onClick={onAdd} disabled={maxQty === 0}>
-          {selected.stock === 0 ? "Out of stock" : maxQty === 0 ? "Limit reached in cart" : "Add to Cart"}
+          {selected.stock === 0 ? t("product.outOfStock") : maxQty === 0 ? t("product.limitReached") : t("product.addToCart")}
         </button>
         <button
           onClick={() => toggle(product.id)}
@@ -91,7 +93,7 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
 
       {added && (
         <p key={addedCount} className="anim-drop mt-4 text-sm" role="status">
-          Added to your cart. <Link href="/cart" className="text-brand underline">View cart →</Link>
+          {t("product.added")} <Link href="/cart" className="text-brand underline">{t("product.viewCart")}</Link>
         </p>
       )}
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSiteText } from "@/components/site-text";
 import { useEffect, useState } from "react";
 import { fetchProductCards } from "@/app/actions";
 import { ProductCard } from "@/components/product-card";
@@ -9,6 +10,7 @@ import type { ProductCard as Card } from "@/lib/catalog";
 
 export default function WishlistPage() {
   const { ids } = useWishlist();
+  const t = useSiteText();
   const [products, setProducts] = useState<Card[] | null>(null);
   const key = [...ids].sort().join(",");
 
@@ -21,11 +23,11 @@ export default function WishlistPage() {
 
   return (
     <div className="container-page py-12">
-      <h1 className="heading-section">Your Wishlist</h1>
+      <h1 className="heading-section">{t("wishlist.title")}</h1>
       {visible === undefined ? null : visible.length === 0 ? (
         <div className="mt-8">
-          <p className="text-taupe">Tap the heart on any candle to save it here.</p>
-          <Link href="/shop" className="btn-primary mt-6">Browse candles</Link>
+          <p className="text-taupe">{t("wishlist.empty")}</p>
+          <Link href="/shop" className="btn-primary mt-6">{t("wishlist.cta")}</Link>
         </div>
       ) : (
         <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">

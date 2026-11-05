@@ -140,6 +140,66 @@ export const CONTENT_GROUPS: ContentGroup[] = [
     ],
   },
   {
+    id: "shop",
+    title: "Shop page",
+    fields: [
+      line("shop.title", "Heading", "Shop All Candles"),
+      line("shop.subtitle", "Text under the heading", "Handcrafted candles for every mood and moment."),
+      line("shop.all", "“All” filter button", "All"),
+      line("shop.search", "Search box placeholder", "Search candles"),
+      line("shop.empty", "When nothing matches", "No candles found."),
+    ],
+  },
+  {
+    id: "product",
+    title: "Product page",
+    fields: [
+      line("product.about", "Description heading", "About this candle"),
+      line("product.chooseOption", "Above the size/scent options", "Choose an option"),
+      line("product.inStock", "In stock", "In stock"),
+      line("product.lowStock", "Few left", "Only {n} left", "{n} is replaced with how many are left (shown at 5 or fewer)."),
+      line("product.outOfStock", "Out of stock", "Out of stock"),
+      line("product.addToCart", "Add to cart button", "Add to Cart"),
+      line("product.limitReached", "Button when the cart already has the most allowed", "Limit reached in cart"),
+      line("product.added", "Message after adding", "Added to your cart."),
+      line("product.viewCart", "Link after adding", "View cart →"),
+      line("product.comingSoon", "When a product has no options yet", "Coming soon."),
+    ],
+  },
+  {
+    id: "cart",
+    title: "Cart & wishlist",
+    fields: [
+      line("cart.title", "Cart heading", "Your Cart"),
+      line("cart.empty.title", "Empty cart heading", "Your cart is empty"),
+      line("cart.empty.text", "Empty cart text", "Find something warm to light up your day."),
+      line("cart.empty.cta", "Empty cart button", "Shop candles"),
+      line("cart.summary", "Order summary heading", "Order summary"),
+      line("cart.checkout", "Checkout button", "Proceed to checkout"),
+      text("cart.paymentNote", "Note under the checkout button", "Payment via UPI QR on WhatsApp after you place your order."),
+      line("wishlist.title", "Wishlist heading", "Your Wishlist"),
+      line("wishlist.empty", "Empty wishlist text", "Tap the heart on any candle to save it here."),
+      line("wishlist.cta", "Empty wishlist button", "Browse candles"),
+    ],
+  },
+  {
+    id: "account",
+    title: "Account page",
+    fields: [
+      line("account.orders", "Orders heading", "Your orders"),
+      line("account.noOrders", "When there are no orders", "You haven't placed any orders yet."),
+    ],
+  },
+  {
+    id: "notfound",
+    title: "Page not found",
+    fields: [
+      line("notFound.title", "Heading", "Not found"),
+      line("notFound.text", "Text", "This page has burned out."),
+      line("notFound.cta", "Button", "Go home"),
+    ],
+  },
+  {
     id: "contact",
     title: "Contact page",
     fields: [
@@ -151,8 +211,14 @@ export const CONTENT_GROUPS: ContentGroup[] = [
     id: "checkout",
     title: "Checkout & order confirmation",
     fields: [
+      line("checkout.title", "Checkout heading", "Checkout"),
       text("checkout.paymentNote", "Payment note at checkout", "After you place your order, we'll send you a UPI payment QR on WhatsApp."),
       line("confirmed.title", "Order confirmation heading", "Thank you for your order!"),
+      line("confirmed.next", "“What happens next” heading", "What happens next?"),
+      line("confirmed.step1", "Next step 1", "We've emailed you an order confirmation."),
+      line("confirmed.step2", "Next step 2", "We'll message you on WhatsApp with a UPI payment QR code."),
+      line("confirmed.step3", "Next step 3", "Once payment is received, we'll lovingly pack and ship your candles."),
+      line("confirmed.cta", "Button", "Continue shopping"),
     ],
   },
   {
@@ -200,3 +266,6 @@ export function cleanContentEdits(input: Record<string, unknown>): { set: Record
   }
   return { set, clear, errors };
 }
+
+/** Labels the in-browser parts of the shop need (cart, wishlist, add-to-cart). Sent down from the layout. */
+export const CLIENT_TEXT_KEYS = CONTENT_GROUPS.filter((g) => g.id === "product" || g.id === "cart").flatMap((g) => g.fields.map((f) => f.key));

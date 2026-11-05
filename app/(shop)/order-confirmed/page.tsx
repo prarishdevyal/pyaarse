@@ -15,14 +15,14 @@ export default async function OrderConfirmedPage({ searchParams }: { searchParam
       <h1 className="heading-section mt-6">{t("confirmed.title")}</h1>
       {orderNumber && <p className="mt-3 text-lg">Order <strong>{orderNumber}</strong> has been placed.</p>}
       <div className="anim-rise card mt-8 p-6 text-left" style={{ "--delay": "150ms" } as React.CSSProperties}>
-        <p className="font-medium">What happens next?</p>
+        <p className="font-medium">{t("confirmed.next")}</p>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-charcoal/85">
-          {sendOrderEmails && <li>We&apos;ve emailed you an order confirmation.</li>}
-          <li>We&apos;ll message you on WhatsApp with a UPI payment QR code.</li>
-          <li>Once payment is received, we&apos;ll lovingly pack and ship your candles.</li>
+          {sendOrderEmails && <li>{t("confirmed.step1")}</li>}
+          <li>{t("confirmed.step2")}</li>
+          <li>{t("confirmed.step3")}</li>
         </ol>
       </div>
-      <Link href="/shop" className="btn-primary mt-8">Continue shopping</Link>
+      <Link href="/shop" className="btn-primary mt-8">{t("confirmed.cta")}</Link>
     </div>
   );
 }

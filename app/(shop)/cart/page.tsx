@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSiteText } from "@/components/site-text";
 import { useCart } from "@/components/cart-provider";
 import { useQuote } from "@/components/use-quote";
 import { Totals } from "@/components/order-summary";
@@ -11,6 +12,7 @@ import { MAX_QTY_PER_VARIANT } from "@/lib/pricing";
 
 export default function CartPage() {
   const { items, ready, setQuantity, remove } = useCart();
+  const t = useSiteText();
   const data = useQuote(items, ready);
 
   if (!ready) return <div className="container-page py-16" />;
@@ -18,9 +20,9 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="container-page py-20 text-center">
-        <h1 className="heading-section">Your cart is empty</h1>
-        <p className="mt-2 text-taupe">Find something warm to light up your day.</p>
-        <Link href="/shop" className="btn-primary mt-8">Shop candles</Link>
+        <h1 className="heading-section">{t("cart.empty.title")}</h1>
+        <p className="mt-2 text-taupe">{t("cart.empty.text")}</p>
+        <Link href="/shop" className="btn-primary mt-8">{t("cart.empty.cta")}</Link>
       </div>
     );
   }
@@ -32,7 +34,7 @@ export default function CartPage() {
 
   return (
     <div className="container-page py-12">
-      <h1 className="heading-section">Your Cart</h1>
+      <h1 className="heading-section">{t("cart.title")}</h1>
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
         <ul className="divide-y divide-sand/60">
           {items.map((i) => {
@@ -79,7 +81,7 @@ export default function CartPage() {
         </ul>
 
         <aside className="card h-fit p-6">
-          <h2 className="mb-4 font-serif text-2xl">Order summary</h2>
+          <h2 className="mb-4 font-serif text-2xl">{t("cart.summary")}</h2>
           {quote?.ok ? (
             <Totals {...quote} freeShippingThreshold={data?.settings.freeShippingThreshold} />
           ) : quote ? (
@@ -92,9 +94,9 @@ export default function CartPage() {
             aria-disabled={!quote?.ok}
             className={`btn-primary mt-6 w-full ${quote?.ok ? "" : "pointer-events-none opacity-50"}`}
           >
-            Proceed to checkout
+            {t("cart.checkout")}
           </Link>
-          <p className="mt-4 text-center text-xs text-taupe">Payment via UPI QR on WhatsApp after you place your order.</p>
+          <p className="mt-4 text-center text-xs text-taupe">{t("cart.paymentNote")}</p>
         </aside>
       </div>
     </div>

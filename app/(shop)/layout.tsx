@@ -8,6 +8,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { getCollections } from "@/lib/catalog";
 import { getShippingSettings } from "@/lib/settings";
 import { getContent } from "@/lib/content";
+import { CLIENT_TEXT_KEYS } from "@/lib/content-defaults";
+import { SiteTextProvider } from "@/components/site-text";
 import { formatINR } from "@/lib/format";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
@@ -19,6 +21,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
     : [];
 
   return (
+    <SiteTextProvider texts={Object.fromEntries(CLIENT_TEXT_KEYS.map((k) => [k, t(k)]))}>
     <CartProvider>
       <WishlistProvider loggedIn={!!user} serverIds={wishlist}>
         <SiteHeader
@@ -33,5 +36,6 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
         <SiteFooter tagline={t("footer.tagline")} />
       </WishlistProvider>
     </CartProvider>
+    </SiteTextProvider>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getContent } from "@/lib/content";
 import { notFound } from "next/navigation";
 import { getProductBySlug } from "@/lib/catalog";
 import { AddToCart } from "./add-to-cart";
@@ -10,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
-  const product = await getProductBySlug((await params).slug);
+  const [product, t] = await Promise.all([getProductBySlug((await params).slug), getContent()]);
   if (!product) notFound();
 
   return (
@@ -31,7 +32,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           />
           {product.description && (
             <div className="mt-10 border-t border-sand/70 pt-6">
-              <h2 className="font-serif text-2xl">About this candle</h2>
+              <h2 className="font-serif text-2xl">{t("product.about")}</h2>
               <p className="mt-3 whitespace-pre-line leading-relaxed text-charcoal/85">{product.description}</p>
             </div>
           )}

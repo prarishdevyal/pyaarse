@@ -1,4 +1,5 @@
 import { desc, eq, inArray } from "drizzle-orm";
+import { getContent } from "@/lib/content";
 import { redirect } from "next/navigation";
 import { logout } from "@/app/actions";
 import { StatusBadge } from "@/components/status-badge";
@@ -12,6 +13,7 @@ export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/account");
 
+  const t = await getContent();
   const orders = await db.select().from(schema.orders).where(eq(schema.orders.userId, user.id)).orderBy(desc(schema.orders.createdAt));
   const items = orders.length
     ? await db.select().from(schema.orderItems).where(inArray(schema.orderItems.orderId, orders.map((o) => o.id)))
@@ -27,9 +29,9 @@ export default async function AccountPage() {
         <form action={logout}><button className="btn-secondary">Log out</button></form>
       </div>
 
-      <h2 className="mt-10 font-serif text-3xl">Your orders</h2>
+      <h2 className="mt-10 font-serif text-3xl">{t("account.orders")}</h2>
       {orders.length === 0 ? (
-        <p className="mt-4 text-taupe">You haven&apos;t placed any orders yet.</p>
+        <p className="mt-4 text-taupe">{t("account.noOrders")}</p>
       ) : (
         <div className="mt-6 space-y-4">
           {orders.map((o) => (
