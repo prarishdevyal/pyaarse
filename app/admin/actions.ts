@@ -14,7 +14,7 @@ import { expiryFromDate, toStoredPrices } from "@/lib/discounts";
 import { canChangeStatus, isOrderStatus, shouldRestock } from "@/lib/order-status";
 import { saveSettings as storeSettings } from "@/lib/settings";
 import { restockOrders, sendInvoice } from "@/lib/orders";
-import { saveImage } from "@/lib/uploads";
+import { removeImages, saveImage } from "@/lib/uploads";
 import { couponSchema, inviteAdminSchema, loginSchema, setAdminPasswordSchema, settingsSchema, variantProblems } from "@/lib/validation";
 import { inviteAdmin, setUserRole } from "@/lib/users";
 import { cleanContentEdits } from "@/lib/content-defaults";
@@ -248,10 +248,23 @@ export async function saveProduct(_prev: FormState, formData: FormData): Promise
   redirect("/products");
 }
 
+/** Removes a product, its variants and its photos. Past orders keep their own copy of names and prices. */
 export async function deleteProduct(formData: FormData) {
   await requireAdmin();
   const id = Number(formData.get("id"));
-  if (Number.isInteger(id)) await db.delete(products).where(eq(products.id, id));
+  if (!Number.isInteger(id)) redirect("/products");
+  const [gone] = await db.delete(products).where(eq(products.id, id)).returning({ name: products.name, images: products.images });
+  if (gone) {
+    const stillUsed = new Set((await db.select({ images: products.images }).from(products)).flatMap((p) => p.images));
+    await removeImages(gone.images.filter((u) => !stillUsed.has(u)));
+  }
+  redirect(gone ? `/products?deleted=${encodeURIComponent(gone.name)}` : "/products");
+}
+
+export async function setProductVisible(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("id"));
+  if (Number.isInteger(id)) await db.update(products).set({ isActive: formData.get("visible") === "true" }).where(eq(products.id, id));
   redirect("/products");
 }
 

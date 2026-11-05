@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectImageType, isAllowedImageUrl } from "./images";
+import { detectImageType, isAllowedImageUrl, storedImageName } from "./images";
 
 const bytes = (...b: number[]) => new Uint8Array(b);
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
@@ -31,5 +31,15 @@ describe("isAllowedImageUrl", () => {
     expect(isAllowedImageUrl(`${sb}/storage/v1/object/public/product-images/../x.jpg`, sb)).toBe(false);
     expect(isAllowedImageUrl("/placeholders/../.env", sb)).toBe(false);
     expect(isAllowedImageUrl(good, undefined)).toBe(false);
+  });
+});
+
+describe("storedImageName", () => {
+  const supa = "https://abc.supabase.co";
+  it("returns the file name for our uploads only", () => {
+    expect(storedImageName(`${supa}/storage/v1/object/public/product-images/0123456789abcdef01234567.webp`, supa)).toBe("0123456789abcdef01234567.webp");
+    expect(storedImageName("/placeholders/product.jpg", supa)).toBeNull();
+    expect(storedImageName("https://evil.example/storage/v1/object/public/product-images/0123456789abcdef01234567.webp", supa)).toBeNull();
+    expect(storedImageName(`${supa}/storage/v1/object/public/product-images/../other.webp`, supa)).toBeNull();
   });
 });

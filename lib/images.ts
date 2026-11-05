@@ -19,3 +19,9 @@ export function isAllowedImageUrl(url: string, supabaseUrl: string | undefined):
   const prefix = `${supabaseUrl.replace(/\/+$/, "")}/storage/v1/object/public/${IMAGE_BUCKET}/`;
   return url.startsWith(prefix) && /^[a-f0-9]{24}\.(jpg|png|webp)$/.test(url.slice(prefix.length));
 }
+
+/** The storage file name behind one of our uploaded image URLs, or null for placeholders and anything else. */
+export function storedImageName(url: string, supabaseUrl: string | undefined): string | null {
+  if (!supabaseUrl || !isAllowedImageUrl(url, supabaseUrl) || url.startsWith("/")) return null;
+  return url.slice(url.lastIndexOf("/") + 1);
+}
