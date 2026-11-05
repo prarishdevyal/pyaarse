@@ -1,7 +1,7 @@
 import { desc } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
-import { toWhatsAppNumber } from "@/lib/format";
+import { toWhatsAppNumber, formatDateTime } from "@/lib/format";
 import { markMessageRead } from "../../actions";
 
 export const metadata = { title: "Messages" };
@@ -24,7 +24,7 @@ export default async function AdminMessagesPage() {
                   {!m.isRead && <span className="mr-2 inline-block h-2 w-2 rounded-full bg-brand align-middle" title="Unread" />}
                   {m.name}
                 </p>
-                <p className="text-xs text-taupe">{m.createdAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</p>
+                <p className="text-xs text-taupe">{formatDateTime(m.createdAt)}</p>
               </div>
               <p className="mt-1 text-sm text-taupe">
                 {m.email}

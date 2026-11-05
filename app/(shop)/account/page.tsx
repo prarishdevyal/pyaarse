@@ -4,7 +4,7 @@ import { logout } from "@/app/actions";
 import { StatusBadge } from "@/components/status-badge";
 import { getCurrentUser } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
-import { formatINR } from "@/lib/format";
+import { formatINR, formatDate } from "@/lib/format";
 
 export const metadata = { title: "My account" };
 
@@ -37,7 +37,7 @@ export default async function AccountPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-medium">Order {o.orderNumber}</p>
-                  <p className="text-sm text-taupe">{o.createdAt.toLocaleDateString("en-IN", { dateStyle: "medium" })}</p>
+                  <p className="text-sm text-taupe">{formatDate(o.createdAt)}</p>
                 </div>
                 <StatusBadge status={o.status} />
               </div>

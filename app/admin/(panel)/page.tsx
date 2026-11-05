@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { startOfIndianDay } from "@/lib/format";
 import { requireAdmin } from "@/lib/auth";
 import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
@@ -8,8 +9,7 @@ const { orders, products, productVariants } = schema;
 
 export default async function AdminDashboard() {
   await requireAdmin();
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = startOfIndianDay();
 
   const [[pending], [today], recent, lowStock] = await Promise.all([
     db.select({ n: count() }).from(orders).where(eq(orders.status, "pending_payment")),

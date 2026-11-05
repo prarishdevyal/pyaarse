@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ORDER_STATUSES } from "@/lib/db/schema";
-import { formatINR, STATUS_LABELS, toWhatsAppNumber } from "@/lib/format";
+import { formatINR, STATUS_LABELS, toWhatsAppNumber, formatDateTime } from "@/lib/format";
 import { canChangeStatus } from "@/lib/order-status";
 import { StatusBadge } from "@/components/status-badge";
 import { resendInvoice, updateOrderStatus } from "../../../actions";
@@ -46,7 +46,7 @@ export default async function AdminOrderPage({
           The invoice email couldn&apos;t be sent{reason ? `: ${reason}` : "."} The order status was still saved. Fix the email settings, then use Resend invoice.
         </p>
       )}
-      <p className="text-sm text-taupe">Placed {order.createdAt.toLocaleString("en-IN", { dateStyle: "full", timeStyle: "short" })}</p>
+      <p className="text-sm text-taupe">Placed {formatDateTime(order.createdAt, "full")}</p>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">

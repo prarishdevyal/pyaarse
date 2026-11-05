@@ -32,3 +32,23 @@ export function toWhatsAppNumber(phone: string): string {
   if (digits.length === 11 && digits.startsWith("0")) return "91" + digits.slice(1);
   return digits;
 }
+
+/** The shop runs on India time; servers (Vercel) run on UTC. */
+export const STORE_TIME_ZONE = "Asia/Kolkata";
+
+export function formatDateTime(d: Date, style: "full" | "medium" = "medium"): string {
+  return d.toLocaleString("en-IN", { dateStyle: style, timeStyle: "short", timeZone: STORE_TIME_ZONE });
+}
+
+export function formatDate(d: Date): string {
+  return d.toLocaleDateString("en-IN", { dateStyle: "medium", timeZone: STORE_TIME_ZONE });
+}
+
+const IST_OFFSET_MS = 330 * 60_000;
+
+/** Midnight in India (as a UTC instant) for the day containing `now`. India has no daylight saving. */
+export function startOfIndianDay(now: Date = new Date()): Date {
+  const ist = new Date(now.getTime() + IST_OFFSET_MS);
+  ist.setUTCHours(0, 0, 0, 0);
+  return new Date(ist.getTime() - IST_OFFSET_MS);
+}

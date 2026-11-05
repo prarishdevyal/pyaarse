@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { OrderSummary } from "./notify/types";
+import { STORE_TIME_ZONE } from "./format";
 
 export type InvoiceData = OrderSummary & { invoiceDate: Date; store: { email: string; whatsapp: string; website: string } };
 
@@ -73,7 +74,7 @@ export async function buildInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
   text(invoiceNumber(d.orderNumber), W - M, { size: 10, right: true });
   y -= 13;
   text([d.store.website, d.store.email, d.store.whatsapp && `WhatsApp +${d.store.whatsapp}`].filter(Boolean).join("  |  "), M, { size: 9, color: MUTED });
-  text(`Date: ${d.invoiceDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}`, W - M, { size: 10, right: true });
+  text(`Date: ${d.invoiceDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: STORE_TIME_ZONE })}`, W - M, { size: 10, right: true });
   y -= 13;
   text(`Order: ${d.orderNumber}`, W - M, { size: 10, right: true });
   y -= 26;
