@@ -44,6 +44,7 @@ jobs:
               echo "::group::Build log of $id"
               api GET "/v3/deployments/$id/events?limit=200" | jq -r '.[]? | (.payload.text // .text // empty)' | tail -80
               api GET "/v13/deployments/$id" | jq -r '"state=\(.readyState) substate=\(.readySubstate // "") error=\(.errorCode // "") \(.errorMessage // "") creator=\(.creator.username // "") git_author=\(.meta.githubCommitAuthorLogin // .gitSource.ref // "")"'
+              api GET "/v13/deployments/$id" | jq -c '{meta: (.meta // {} | with_entries(select(.key|test("Author|author|Commit|commit|gitDirty|actor")))), gitMetadata: (.gitMetadata // null | if . then {commitAuthorName, commitAuthorEmail} else null end), source, checks: .checksState}' 
               echo "::endgroup::"
             done
             echo "Stuck for over 5 minutes: ${stuck:-none}"
