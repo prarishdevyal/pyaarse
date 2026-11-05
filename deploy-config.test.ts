@@ -27,4 +27,13 @@ describe("deployment config", () => {
     expect(read("./.gitignore")).toMatch(/^\.env\*$/m);
     expect(read("./.dockerignore")).toMatch(/^\.env\*$/m);
   });
+
+  it("deploys only through the tested GitHub Action", () => {
+    const workflow = read("./.github/workflows/deploy.yml");
+    expect(JSON.parse(read("./vercel.json")).git).toEqual({ deploymentEnabled: false });
+    expect(workflow).toMatch(/deploy:\s*\n\s*needs: test/);
+    expect(workflow).toMatch(/run: npm test/);
+    expect(workflow).not.toMatch(/vercel@latest/);
+    expect(read("./.gitignore")).toMatch(/^\.vercel$/m);
+  });
 });

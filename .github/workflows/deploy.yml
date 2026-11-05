@@ -1,0 +1,78 @@
+name: Test and deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  VERCEL_CLI: vercel@48.10.3
+  SITE: ${{ vars.PRODUCTION_URL || 'https://pyaarse.vercel.app' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Check secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          for s in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            [ -n "${!s}" ] || { echo "::error::Repository secret $s is not set (Settings → Secrets and variables → Actions)"; exit 1; }
+          done
+      - run: npm install --global ${{ env.VERCEL_CLI }}
+      - name: Pull Vercel production settings
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      # Runs the vercel-build script: database migrations, then next build.
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy
+        id: deploy
+        run: echo "url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})" >> "$GITHUB_OUTPUT"
+      - name: Smoke test the live site (runtime logs are captured below)
+        run: |
+          vercel logs "${{ steps.deploy.outputs.url }}" --token=${{ secrets.VERCEL_TOKEN }} > runtime.log 2>&1 &
+          LOGS=$!
+          sleep 5
+          failed=0
+          for path in / /shop /cart /checkout /contact /login /about /privacy /terms; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$SITE$path")
+            echo "$code $SITE$path"
+            [ "$code" = "200" ] || failed=1
+          done
+          sleep 10
+          kill $LOGS 2>/dev/null || true
+          echo "::group::Vercel runtime logs during the smoke test"
+          cat runtime.log
+          echo "::endgroup::"
+          if [ $failed = 1 ]; then
+            echo "::error::Some pages did not return 200. See the runtime logs above."
+            grep -iE "error|fail|unhandled" runtime.log | head -20 | sed 's/^/::error::/' || true
+            exit 1
+          fi
