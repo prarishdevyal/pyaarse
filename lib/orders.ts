@@ -200,7 +200,7 @@ export async function invoicePdfFor(summary: OrderSummary, paid: boolean, invoic
     ...summary,
     invoiceDate,
     paid,
-    store: { email: orderAlertEmail() ?? store.email, whatsapp: store.whatsapp, website: siteUrl().replace(/^https?:\/\//, "") },
+    store: { email: store.email, whatsapp: store.whatsapp, website: siteUrl().replace(/^https?:\/\//, "") },
   });
 }
 

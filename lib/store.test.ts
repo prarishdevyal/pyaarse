@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { storeContact } from "./store";
+import { instagramHandle, storeContact } from "./store";
 
 describe("storeContact", () => {
   it("builds a WhatsApp link with an encoded message", () => {
@@ -9,6 +9,12 @@ describe("storeContact", () => {
     const c = storeContact({ STORE_INSTAGRAM: "@pyaarse.candles" });
     expect(c.whatsappLink("x")).toBeNull();
     expect(c.instagram).toBe("pyaarse.candles");
-    expect(c.email).toBe("hello@pyaarse.net");
+    expect(c.email).toBe("query@pyaarse.net");
+  });
+  it("defaults to the shop's Instagram", () => expect(storeContact({}).instagram).toBe("pyaarse_net"));
+  it("reads a handle however it's written", () => {
+    for (const raw of ["pyaarse_net", "@pyaarse_net", "instagram.com/pyaarse_net", "https://www.instagram.com/pyaarse_net/?hl=en"]) {
+      expect(instagramHandle(raw)).toBe("pyaarse_net");
+    }
   });
 });
