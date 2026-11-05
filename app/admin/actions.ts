@@ -26,8 +26,8 @@ const { products, productVariants, collections, orders } = schema;
 export async function adminLogin(_prev: FormState, formData: FormData): Promise<FormState> {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Please enter your email and password." };
-  const ipOk = limits.adminLoginByIp.hit(await clientIp());
-  if (!ipOk || !limits.adminLoginByEmail.hit(parsed.data.email)) return { error: TOO_MANY };
+  const ipOk = await limits.adminLoginByIp.hit(await clientIp());
+  if (!ipOk || !await limits.adminLoginByEmail.hit(parsed.data.email)) return { error: TOO_MANY };
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   const user = data.session ? userFromClaims({ sub: data.user?.id, email: data.user?.email, app_metadata: data.user?.app_metadata }) : null;

@@ -6,6 +6,7 @@ import { productFieldsSchema, variantProblems } from "@/lib/validation";
 import { useValidation } from "./use-validation";
 import { FormField, invalidProps } from "./form-field";
 import { TrashIcon } from "./icons";
+import { ImageFileInput, type ImageInputState } from "./image-file-input";
 
 type Variant = { id?: number; name: string; price: number; stock: number };
 type Initial = {
@@ -25,13 +26,14 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
   const [images, setImages] = useState<string[]>(initial?.images ?? []);
   const [variants, setVariants] = useState<Variant[]>(initial?.variants.length ? initial.variants : [{ name: "Standard", price: 1, stock: 0 }]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [upload, setUpload] = useState<ImageInputState>({ busy: false, tooLarge: false });
   const v = useValidation(productFieldsSchema.shape);
   const [checkedVariants, setCheckedVariants] = useState(false);
   const problems = checkedVariants ? variantProblems(variants) : {};
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     setCheckedVariants(true);
     const fieldsOk = v.validateForm(e.currentTarget);
-    if (!fieldsOk || Object.keys(variantProblems(variants)).length > 0) e.preventDefault();
+    if (!fieldsOk || Object.keys(variantProblems(variants)).length > 0 || upload.busy || upload.tooLarge) e.preventDefault();
   };
 
   const updateVariant = (i: number, patch: Partial<Variant>) => setVariants((vs) => vs.map((v, j) => (j === i ? { ...v, ...patch } : v)));
@@ -131,18 +133,16 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
             <img key={src} src={src} alt="" className="h-24 w-24 rounded-lg object-cover opacity-70 ring-2 ring-brand/40" />
           ))}
         </div>
-        <input
-          type="file"
+        <ImageFileInput
           name="newImages"
-          accept="image/jpeg,image/png,image/webp"
           multiple
-          className="block text-sm file:mr-3 file:rounded-full file:border-0 file:bg-blush file:px-4 file:py-2 file:text-brand"
-          onChange={(e) => setPreviews(Array.from(e.target.files ?? []).map((f) => URL.createObjectURL(f)))}
+          onState={setUpload}
+          onFiles={(files) => setPreviews(files.map((f) => URL.createObjectURL(f)))}
         />
       </section>
 
       {state?.error && <p className="text-sm text-brand" role="alert">{state.error}</p>}
-      <button className="btn-primary px-10" disabled={pending}>{pending ? "Saving…" : "Save product"}</button>
+      <button className="btn-primary px-10" disabled={pending || upload.busy}>{pending ? "Saving…" : upload.busy ? "Optimising photos…" : "Save product"}</button>
     </form>
   );
 }

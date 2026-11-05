@@ -12,6 +12,7 @@ import { getShippingSettings } from "@/lib/settings";
 import { cartItemsSchema, checkoutSchema, contactSchema, loginSchema, registerSchema } from "@/lib/validation";
 import { buildContactTelegramMessage, sendTelegram } from "@/lib/notify/telegram";
 import { safeNext } from "@/lib/redirect";
+import { siteUrl } from "@/lib/hosts";
 import { clientIp, limits, TOO_MANY } from "@/lib/limits";
 
 export type FormState = { error?: string; success?: string; fieldErrors?: Record<string, string> } | undefined;
@@ -31,7 +32,7 @@ export async function quoteCart(input: CartLine[]) {
   const settings = await getShippingSettings();
   const parsed = cartItemsSchema.safeParse(input);
   if (!parsed.success) return { quote: { ok: false as const, error: "Your cart could not be read. Please refresh." }, settings, variants: [] };
-  if (!limits.quoteByIp.hit(await clientIp())) return { quote: { ok: false as const, error: TOO_MANY }, settings, variants: [] };
+  if (!await limits.quoteByIp.hit(await clientIp())) return { quote: { ok: false as const, error: TOO_MANY }, settings, variants: [] };
   const lines = parsed.data;
   const ids = lines.map((l) => l.variantId);
   if (ids.length === 0) return { quote: priceCart([], [], settings), settings, variants: [] };
@@ -58,8 +59,8 @@ export async function checkout(
 ): Promise<{ ok: true; orderNumber: string } | { ok: false; error?: string; fieldErrors?: Record<string, string> }> {
   const parsed = checkoutSchema.safeParse(input);
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrors(parsed.error.issues) };
-  const ipOk = limits.checkoutByIp.hit(await clientIp());
-  if (!ipOk || !limits.checkoutByEmail.hit(parsed.data.email)) return { ok: false, error: TOO_MANY };
+  const ipOk = await limits.checkoutByIp.hit(await clientIp());
+  if (!ipOk || !await limits.checkoutByEmail.hit(parsed.data.email)) return { ok: false, error: TOO_MANY };
   const user = await getCurrentUser();
   const result = await placeOrder(parsed.data, user?.id ?? null);
   if (!result.ok) return { ok: false, error: result.error };
@@ -71,10 +72,10 @@ export async function checkout(
 export async function register(_prev: FormState, formData: FormData): Promise<FormState> {
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error.issues) };
-  if (!limits.registerByIp.hit(await clientIp())) return { error: TOO_MANY };
+  if (!await limits.registerByIp.hit(await clientIp())) return { error: TOO_MANY };
   const { name, email, password } = parsed.data;
   const next = safeNext(formData.get("next"));
-  const site = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  const site = siteUrl();
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -90,8 +91,8 @@ export async function register(_prev: FormState, formData: FormData): Promise<Fo
 export async function login(_prev: FormState, formData: FormData): Promise<FormState> {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error.issues) };
-  const ipOk = limits.loginByIp.hit(await clientIp());
-  if (!ipOk || !limits.loginByEmail.hit(parsed.data.email)) return { error: TOO_MANY };
+  const ipOk = await limits.loginByIp.hit(await clientIp());
+  if (!ipOk || !await limits.loginByEmail.hit(parsed.data.email)) return { error: TOO_MANY };
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
@@ -162,8 +163,8 @@ export async function sendContactMessage(_prev: FormState, formData: FormData): 
     if (errs.website) return { success: "Thanks! Your message has been sent." };
     return { fieldErrors: errs };
   }
-  const ipOk = limits.contactByIp.hit(await clientIp());
-  if (!ipOk || !limits.contactByEmail.hit(parsed.data.email)) return { error: TOO_MANY };
+  const ipOk = await limits.contactByIp.hit(await clientIp());
+  if (!ipOk || !await limits.contactByEmail.hit(parsed.data.email)) return { error: TOO_MANY };
   const { website: _, ...m } = parsed.data;
   await db.insert(schema.contactMessages).values(m);
   const adminBase = process.env.ADMIN_URL;
