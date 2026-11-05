@@ -3,17 +3,21 @@ import { redirect } from "next/navigation";
 import { login } from "@/app/actions";
 import { AuthForm } from "@/components/auth-form";
 import { getCurrentUser } from "@/lib/auth";
+import { safeNext } from "@/lib/redirect";
 
 export const metadata = { title: "Log in" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; confirm?: string }> }) {
-  if (await getCurrentUser()) redirect("/account");
   const { next, confirm } = await searchParams;
+  if (await getCurrentUser()) redirect(safeNext(next));
   return (
     <div className="container-page max-w-md py-16">
       <h1 className="heading-section text-center">Welcome back</h1>
+      {confirm === "verified" && (
+        <p className="mt-6 rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm text-emerald-900" role="status">Your email is verified. Log in to continue.</p>
+      )}
       {confirm === "failed" && (
-        <p className="mt-6 rounded-xl bg-blush px-4 py-3 text-center text-sm">That confirmation link is invalid or has expired. Try logging in, or register again.</p>
+        <p className="mt-6 rounded-xl bg-blush px-4 py-3 text-center text-sm" role="alert">That confirmation link has expired or was already used. If you&apos;ve confirmed before, just log in. Otherwise, register again for a new link.</p>
       )}
       <div className="card mt-8 p-6">
         <AuthForm

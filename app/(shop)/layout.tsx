@@ -2,6 +2,8 @@ import { CartProvider } from "@/components/cart-provider";
 import { WishlistProvider } from "@/components/wishlist-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { VerifiedNotice } from "@/components/verified-notice";
+import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import { getCollections } from "@/lib/catalog";
 import { getShippingSettings } from "@/lib/settings";
@@ -24,6 +26,9 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
           announcement={t("announcement").replaceAll("{threshold}", formatINR(settings.freeShippingThreshold))}
           collections={collections.map((c) => ({ name: c.name, slug: c.slug }))}
         />
+        <Suspense>
+          <VerifiedNotice />
+        </Suspense>
         <main className="min-h-[60vh]">{children}</main>
         <SiteFooter tagline={t("footer.tagline")} />
       </WishlistProvider>
