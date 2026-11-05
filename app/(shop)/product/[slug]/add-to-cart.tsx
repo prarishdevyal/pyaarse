@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { useWishlist } from "@/components/wishlist-provider";
 import { HeartIcon } from "@/components/icons";
+import { AnimatedCount } from "@/components/animated-count";
 import { formatINR } from "@/lib/format";
 import { MAX_QTY_PER_VARIANT } from "@/lib/pricing";
 
@@ -62,9 +63,9 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <div className="flex items-center rounded-full border border-sand">
-          <button className="px-4 py-3 disabled:opacity-40" onClick={() => setQty((q) => Math.max(1, q - 1))} disabled={qty <= 1} aria-label="Decrease">−</button>
-          <span className="w-8 text-center">{qty}</span>
-          <button className="px-4 py-3 disabled:opacity-40" onClick={() => setQty((q) => q + 1)} disabled={qty >= maxQty} aria-label="Increase">+</button>
+          <button className="step-btn px-4 py-3 disabled:opacity-40" onClick={() => setQty((q) => Math.max(1, q - 1))} disabled={qty <= 1} aria-label="Decrease">−</button>
+          <AnimatedCount value={qty} className="w-8" />
+          <button className="step-btn px-4 py-3 disabled:opacity-40" onClick={() => setQty((q) => q + 1)} disabled={qty >= maxQty} aria-label="Increase">+</button>
         </div>
         <button className="btn-primary flex-1 sm:flex-none sm:px-12" onClick={onAdd} disabled={maxQty === 0}>
           {selected.stock === 0 ? "Out of stock" : maxQty === 0 ? "Limit reached in cart" : "Add to Cart"}

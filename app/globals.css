@@ -126,6 +126,14 @@
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: none; }
 }
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(70%); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes count-down {
+  from { opacity: 0; transform: translateY(-70%); }
+  to { opacity: 1; transform: none; }
+}
 @keyframes fade {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -137,6 +145,8 @@
   .anim-pop { animation: pop 0.35s var(--ease-pop); }
   .anim-drop { animation: drop 0.25s var(--ease-settle) both; }
   .anim-fade { animation: fade 0.2s ease-out both; }
+  .anim-count-up { animation: count-up 0.25s var(--ease-settle) both; }
+  .anim-count-down { animation: count-down 0.25s var(--ease-settle) both; }
 }
 
 @layer components {
@@ -148,6 +158,14 @@
   .btn-primary:active:not(:disabled), .btn-secondary:active:not(:disabled) {
     transform: scale(0.97);
     transition-duration: 80ms;
+  }
+  /* Quantity − / + buttons press in */
+  .step-btn {
+    transition: transform 150ms var(--ease-settle), opacity 150ms;
+  }
+  .step-btn:active:not(:disabled) {
+    transform: scale(0.8);
+    transition-duration: 60ms;
   }
   /* FAQ answers ease open */
   details[open] > :not(summary) {

@@ -5,6 +5,7 @@ import { useCart } from "@/components/cart-provider";
 import { useQuote } from "@/components/use-quote";
 import { Totals } from "@/components/order-summary";
 import { TrashIcon } from "@/components/icons";
+import { AnimatedCount } from "@/components/animated-count";
 import { formatINR } from "@/lib/format";
 import { MAX_QTY_PER_VARIANT } from "@/lib/pricing";
 
@@ -50,10 +51,10 @@ export default function CartPage() {
                   </div>
                   <div className="mt-auto flex items-center gap-3 pt-3">
                     <div className="flex items-center rounded-full border border-sand text-sm">
-                      <button className="px-3 py-1.5" onClick={() => setQuantity(i.variantId, i.quantity - 1)} aria-label="Decrease">−</button>
-                      <span className="w-6 text-center">{i.quantity}</span>
+                      <button className="step-btn px-3 py-1.5" onClick={() => setQuantity(i.variantId, i.quantity - 1)} aria-label="Decrease">−</button>
+                      <AnimatedCount value={i.quantity} className="w-6" />
                       <button
-                        className="px-3 py-1.5 disabled:opacity-40"
+                        className="step-btn px-3 py-1.5 disabled:opacity-40"
                         onClick={() => setQuantity(i.variantId, i.quantity + 1)}
                         disabled={i.quantity >= MAX_QTY_PER_VARIANT || (stock !== undefined && i.quantity >= stock)}
                         aria-label="Increase"
