@@ -9,6 +9,9 @@ export type OrderSummary = {
   pincode: string;
   notes: string;
   subtotal: number;
+  /** Coupon discount (0 when none). */
+  discount: number;
+  couponCode: string | null;
   shipping: number;
   total: number;
   items: { productName: string; variantName: string; unitPrice: number; quantity: number }[];

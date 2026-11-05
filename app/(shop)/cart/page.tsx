@@ -28,6 +28,7 @@ export default function CartPage() {
   const quote = data?.quote;
   const stockById = new Map(data?.variants?.map((v) => [v.id, v.stock]));
   const priceById = new Map(data?.variants?.map((v) => [v.id, v.price]));
+  const wasById = new Map(data?.variants?.map((v) => [v.id, v.compareAtPrice]));
 
   return (
     <div className="container-page py-12">
@@ -37,6 +38,7 @@ export default function CartPage() {
           {items.map((i) => {
             const stock = stockById.get(i.variantId);
             const price = priceById.get(i.variantId) ?? i.price;
+            const was = wasById.get(i.variantId);
             return (
               <li key={i.variantId} className="flex gap-4 py-5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -47,7 +49,10 @@ export default function CartPage() {
                       <Link href={`/product/${i.productSlug}`} className="font-serif text-xl hover:text-brand">{i.productName}</Link>
                       <p className="text-sm text-taupe">{i.variantName}</p>
                     </div>
-                    <p className="font-medium">{formatINR(price * i.quantity)}</p>
+                    <p className="text-right font-medium">
+                      {formatINR(price * i.quantity)}
+                      {was != null && was > price && <s className="block text-xs font-normal text-taupe">{formatINR(was * i.quantity)}</s>}
+                    </p>
                   </div>
                   <div className="mt-auto flex items-center gap-3 pt-3">
                     <div className="flex items-center rounded-full border border-sand text-sm">

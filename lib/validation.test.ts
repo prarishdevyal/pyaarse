@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cartItemsSchema, checkoutSchema, contactSchema, settingsSchema, variantProblems } from "./validation";
+import { cartItemsSchema, checkoutSchema, contactSchema, couponSchema, settingsSchema, variantProblems } from "./validation";
 
 const base = {
   customerName: "Asha", email: " Asha@Example.com ", phone: "98765 43210",
@@ -82,5 +82,26 @@ describe("admin form rules", () => {
       1: "Price must be at least ₹1.",
     });
     expect(variantProblems([{ name: "200g", price: 1, stock: 1 }, { name: "200G", price: 1, stock: 1 }])[1]).toBe("Two variants have the same name.");
+  });
+  it("checks sale prices are below the price", () => {
+    expect(variantProblems([{ name: "200g", price: 699, salePrice: 499, stock: 3 }])).toEqual({});
+    expect(variantProblems([{ name: "200g", price: 699, salePrice: null, stock: 3 }])).toEqual({});
+    expect(variantProblems([{ name: "200g", price: 699, salePrice: 699, stock: 3 }])[0]).toBe("Sale price must be lower than the price.");
+    expect(variantProblems([{ name: "200g", price: 699, salePrice: 0, stock: 3 }])[0]).toBe("Sale price must be lower than the price.");
+  });
+});
+
+describe("couponSchema", () => {
+  const base = { code: " diwali 10 ", kind: "percent", value: "10", minSubtotal: "", maxDiscount: "", usageLimit: "", expiresOn: "" };
+  it("normalises the code and fills defaults", () => {
+    expect(couponSchema.parse(base)).toEqual({ code: "DIWALI10", kind: "percent", value: 10, minSubtotal: 0, maxDiscount: null, usageLimit: null, expiresOn: "" });
+  });
+  it("rejects bad input", () => {
+    expect(couponSchema.safeParse({ ...base, code: "a!" }).success).toBe(false);
+    expect(couponSchema.safeParse({ ...base, value: "95" }).success).toBe(false);
+    expect(couponSchema.safeParse({ ...base, kind: "flat", value: "95" }).success).toBe(true);
+    expect(couponSchema.safeParse({ ...base, value: "0" }).success).toBe(false);
+    expect(couponSchema.safeParse({ ...base, usageLimit: "0" }).success).toBe(false);
+    expect(couponSchema.safeParse({ ...base, minSubtotal: "9.5" }).success).toBe(false);
   });
 });

@@ -139,6 +139,7 @@ export async function buildInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
     y -= strong ? 20 : 15;
   };
   total("Subtotal", pdfMoney(d.subtotal));
+  if (d.discount > 0) total(`Discount${d.couponCode ? ` (${d.couponCode})` : ""}`, `- ${pdfMoney(d.discount)}`);
   total("Shipping", d.shipping === 0 ? "Free" : pdfMoney(d.shipping));
   y -= 4;
   total(labels.total, pdfMoney(d.total), true);

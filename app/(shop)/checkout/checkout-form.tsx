@@ -21,7 +21,9 @@ type Prefill = { name: string; email: string; phone: string } | null;
 export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote: string }) {
   const router = useRouter();
   const { items, ready, clear } = useCart();
-  const data = useQuote(items, ready);
+  const [coupon, setCoupon] = useState("");
+  const [couponInput, setCouponInput] = useState("");
+  const data = useQuote(items, ready, coupon);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -50,7 +52,7 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
     setError(undefined);
     setFieldErrors({});
     start(async () => {
-      const res = await checkout({ ...f, items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })) });
+      const res = await checkout({ ...f, couponCode: quote?.ok && quote.couponCode ? quote.couponCode : "", items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })) });
       if (res.ok) {
         clear();
         router.push(`/order-confirmed?n=${encodeURIComponent(res.orderNumber)}`);
@@ -150,6 +152,15 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
             </li>
           ))}
         </ul>
+        <CouponBox
+          input={couponInput}
+          onInput={setCouponInput}
+          applied={quote?.ok ? quote.couponCode : null}
+          error={coupon && quote?.ok ? quote.couponError : undefined}
+          checking={!!coupon && data?.quote === undefined}
+          onApply={() => setCoupon(couponInput.trim())}
+          onRemove={() => { setCoupon(""); setCouponInput(""); }}
+        />
         {quote?.ok ? <Totals {...quote} /> : quote ? <p className="text-sm text-brand">{quote.error}</p> : <p className="text-sm text-taupe">Calculating…</p>}
         <div className="mt-5 rounded-xl bg-blush p-4 text-sm">
           <strong>How payment works:</strong> {paymentNote}
@@ -165,5 +176,55 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
         </p>
       </aside>
     </form>
+  );
+}
+
+function CouponBox({
+  input, onInput, applied, error, checking, onApply, onRemove,
+}: {
+  input: string;
+  onInput: (v: string) => void;
+  applied: string | null | undefined;
+  error?: string;
+  checking: boolean;
+  onApply: () => void;
+  onRemove: () => void;
+}) {
+  if (applied) {
+    return (
+      <p className="mb-4 flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900" role="status">
+        <span>Code <strong>{applied}</strong> applied</span>
+        <button type="button" onClick={onRemove} className="underline">Remove</button>
+      </p>
+    );
+  }
+  return (
+    <div className="mb-4">
+      <label htmlFor="coupon" className="label">Coupon code</label>
+      <div className="flex gap-2">
+        <input
+          id="coupon"
+          value={input}
+          onChange={(e) => onInput(e.target.value.toUpperCase())}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (input.trim()) onApply();
+            }
+          }}
+          autoComplete="off"
+          autoCapitalize="characters"
+          maxLength={30}
+          placeholder="e.g. DIWALI10"
+          className="input flex-1 uppercase"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "coupon-error" : undefined}
+        />
+        <button type="button" onClick={onApply} disabled={!input.trim() || checking} className="btn-secondary shrink-0 px-5">
+          {checking ? "Checking…" : "Apply"}
+        </button>
+      </div>
+      {error && <p id="coupon-error" className="mt-1.5 text-xs text-brand" role="alert">{error}</p>}
+    </div>
   );
 }

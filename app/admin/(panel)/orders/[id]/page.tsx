@@ -64,6 +64,9 @@ export default async function AdminOrderPage({
             </ul>
             <dl className="mt-3 space-y-1 border-t border-sand/60 pt-3 text-sm">
               <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatINR(order.subtotal)}</dd></div>
+              {order.discount > 0 && (
+                <div className="flex justify-between text-[#1f8f4e]"><dt>Discount{order.couponCode ? ` (${order.couponCode})` : ""}</dt><dd>−{formatINR(order.discount)}</dd></div>
+              )}
               <div className="flex justify-between"><dt>Shipping</dt><dd>{order.shipping ? formatINR(order.shipping) : "Free"}</dd></div>
               <div className="flex justify-between text-base font-medium"><dt>Total</dt><dd className="text-brand">{formatINR(order.total)}</dd></div>
             </dl>

@@ -8,6 +8,13 @@ function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+const discountLabel = (o: OrderSummary) => `Discount${o.couponCode ? ` (${o.couponCode})` : ""}`;
+const discountText = (o: OrderSummary) => (o.discount > 0 ? [`${discountLabel(o)}: -${formatINR(o.discount)}`] : []);
+const discountRow = (o: OrderSummary) =>
+  o.discount > 0
+    ? `<tr><td style="padding:4px 0">${esc(discountLabel(o))}</td><td style="padding:4px 0;text-align:right;color:#1f8f4e">−${formatINR(o.discount)}</td></tr>`
+    : "";
+
 export function buildConfirmationEmail(o: OrderSummary): { subject: string; text: string; html: string } {
   const subject = `Your Pyaarse order ${o.orderNumber} is confirmed`;
   const itemsText = o.items
@@ -24,6 +31,7 @@ export function buildConfirmationEmail(o: OrderSummary): { subject: string; text
     itemsText,
     ``,
     `Subtotal: ${formatINR(o.subtotal)}`,
+    ...discountText(o),
     `Shipping: ${shippingLabel}`,
     `Total: ${formatINR(o.total)}`,
     ``,
@@ -50,7 +58,7 @@ export function buildConfirmationEmail(o: OrderSummary): { subject: string; text
     <p>Hi ${esc(o.customerName)},</p>
     <p>Thank you for your order! We've received order <strong>${esc(o.orderNumber)}</strong>.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0">${rows}
-      <tr><td style="padding:8px 0">Subtotal</td><td style="padding:8px 0;text-align:right">${formatINR(o.subtotal)}</td></tr>
+      <tr><td style="padding:8px 0">Subtotal</td><td style="padding:8px 0;text-align:right">${formatINR(o.subtotal)}</td></tr>${discountRow(o)}
       <tr><td style="padding:4px 0">Shipping</td><td style="padding:4px 0;text-align:right">${shippingLabel}</td></tr>
       <tr><td style="padding:8px 0;font-weight:bold">Total</td><td style="padding:8px 0;text-align:right;font-weight:bold;color:#89211E">${formatINR(o.total)}</td></tr>
     </table>
@@ -76,7 +84,7 @@ function itemRows(o: OrderSummary): string {
 }
 
 function totalRows(o: OrderSummary, totalLabel = "Total"): string {
-  return `<tr><td style="padding:8px 0">Subtotal</td><td style="padding:8px 0;text-align:right">${formatINR(o.subtotal)}</td></tr>
+  return `<tr><td style="padding:8px 0">Subtotal</td><td style="padding:8px 0;text-align:right">${formatINR(o.subtotal)}</td></tr>${discountRow(o)}
       <tr><td style="padding:4px 0">Shipping</td><td style="padding:4px 0;text-align:right">${o.shipping === 0 ? "Free" : formatINR(o.shipping)}</td></tr>
       <tr><td style="padding:8px 0;font-weight:bold">${totalLabel}</td><td style="padding:8px 0;text-align:right;font-weight:bold;color:#89211E">${formatINR(o.total)}</td></tr>`;
 }
@@ -128,6 +136,7 @@ export function buildAdminOrderEmail(o: OrderSummary, adminOrderUrl?: string): {
     ...o.items.map((i) => `- ${i.productName} (${i.variantName}) x ${i.quantity}: ${formatINR(i.unitPrice * i.quantity)}`),
     ``,
     `Subtotal: ${formatINR(o.subtotal)}`,
+    ...discountText(o),
     `Shipping: ${o.shipping === 0 ? "Free" : formatINR(o.shipping)}`,
     `Total: ${formatINR(o.total)}`,
     ...(o.notes ? [``, `Notes: ${o.notes}`] : []),

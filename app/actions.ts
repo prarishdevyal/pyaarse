@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getProductCards, type ProductCard } from "@/lib/catalog";
 import { placeOrder } from "@/lib/orders";
 import { priceCart, type CartLine } from "@/lib/pricing";
+import { couponDiscount, normalizeCode, totalsWithDiscount } from "@/lib/discounts";
 import { getShippingSettings } from "@/lib/settings";
 import { cartItemsSchema, checkoutSchema, contactSchema, loginSchema, registerSchema } from "@/lib/validation";
 import { buildContactTelegramMessage, sendTelegram } from "@/lib/notify/telegram";
@@ -28,14 +29,14 @@ function fieldErrors(issues: { path: PropertyKey[]; message: string }[]) {
 
 // ---------- Cart & checkout ----------
 
-export async function quoteCart(input: CartLine[]) {
+export async function quoteCart(input: CartLine[], couponCode = "") {
   const settings = await getShippingSettings();
   const parsed = cartItemsSchema.safeParse(input);
   if (!parsed.success) return { quote: { ok: false as const, error: "Your cart could not be read. Please refresh." }, settings, variants: [] };
   if (!await limits.quoteByIp.hit(await clientIp())) return { quote: { ok: false as const, error: TOO_MANY }, settings, variants: [] };
   const lines = parsed.data;
   const ids = lines.map((l) => l.variantId);
-  if (ids.length === 0) return { quote: priceCart([], [], settings), settings, variants: [] };
+  if (ids.length === 0) return { quote: { ok: false as const, error: "Your cart is empty." }, settings, variants: [] };
   const rows = await db
     .select({
       id: schema.productVariants.id,
@@ -43,6 +44,7 @@ export async function quoteCart(input: CartLine[]) {
       productName: schema.products.name,
       variantName: schema.productVariants.name,
       price: schema.productVariants.price,
+      compareAtPrice: schema.productVariants.compareAtPrice,
       stock: schema.productVariants.stock,
       isActive: schema.products.isActive,
     })
@@ -50,8 +52,21 @@ export async function quoteCart(input: CartLine[]) {
     .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
     .where(and(inArray(schema.productVariants.id, ids), eq(schema.products.isActive, true)));
   // Only what the cart UI needs, and never anything about hidden products.
-  const variants = rows.map(({ id, price, stock }) => ({ id, price, stock }));
-  return { quote: priceCart(lines, rows, settings), settings, variants };
+  const variants = rows.map(({ id, price, compareAtPrice, stock }) => ({ id, price, compareAtPrice, stock }));
+  const priced = priceCart(lines, rows, settings);
+  if (!priced.ok) return { quote: priced, settings, variants };
+
+  const code = normalizeCode(couponCode.slice(0, 30));
+  let discount = 0;
+  let couponError: string | undefined;
+  if (code) {
+    const coupon = await db.query.coupons.findFirst({ where: eq(schema.coupons.code, code) });
+    const applied = couponDiscount(coupon, priced.subtotal);
+    if (applied.ok) discount = applied.discount;
+    else couponError = applied.error;
+  }
+  const quote = { ...priced, ...totalsWithDiscount(priced.subtotal, discount, settings), couponCode: discount ? code : null, couponError };
+  return { quote, settings, variants };
 }
 
 export async function checkout(

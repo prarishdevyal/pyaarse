@@ -7,14 +7,14 @@ import type { CartItem } from "./cart-provider";
 type Quote = Awaited<ReturnType<typeof quoteCart>>;
 
 /** Fetches authoritative prices, shipping and stock for the cart from the server. */
-export function useQuote(items: CartItem[], ready: boolean) {
+export function useQuote(items: CartItem[], ready: boolean, couponCode = "") {
   const [quote, setQuote] = useState<Quote | null>(null);
-  const key = items.map((i) => `${i.variantId}x${i.quantity}`).join(",");
+  const key = items.map((i) => `${i.variantId}x${i.quantity}`).join(",") + `|${couponCode}`;
 
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
-    quoteCart(items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })))
+    quoteCart(items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })), couponCode)
       .then((q) => !cancelled && setQuote(q))
       .catch(() => {});
     return () => {

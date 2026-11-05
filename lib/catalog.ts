@@ -13,6 +13,8 @@ export type ProductCard = {
   slug: string;
   image: string;
   minPrice: number | null;
+  /** Regular price of the cheapest variant when it's on sale (shown crossed out), else null. */
+  minPriceWas: number | null;
   inStock: boolean;
   collectionName: string | null;
 };
@@ -39,6 +41,7 @@ export async function getProductCards(opts: { collectionSlug?: string; bestselle
       images: products.images,
       collectionName: collections.name,
       minPrice: sql<number | null>`min(${productVariants.price})`,
+      minPriceWas: sql<number | null>`(array_agg(${productVariants.compareAtPrice} order by ${productVariants.price}, ${productVariants.id}))[1]`,
       totalStock: sql<number>`coalesce(sum(${productVariants.stock}), 0)`,
     })
     .from(products)
@@ -55,6 +58,7 @@ export async function getProductCards(opts: { collectionSlug?: string; bestselle
     slug: r.slug,
     image: r.images[0] ?? PRODUCT_PLACEHOLDER,
     minPrice: r.minPrice === null ? null : Number(r.minPrice),
+    minPriceWas: r.minPriceWas !== null && r.minPrice !== null && Number(r.minPriceWas) > Number(r.minPrice) ? Number(r.minPriceWas) : null,
     inStock: Number(r.totalStock) > 0,
     collectionName: r.collectionName,
   }));

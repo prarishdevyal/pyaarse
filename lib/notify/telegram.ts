@@ -23,6 +23,7 @@ export function buildTelegramMessage(o: OrderSummary, adminOrderUrl?: string): s
     items,
     ``,
     `Subtotal: ${formatINR(o.subtotal)}`,
+    ...(o.discount > 0 ? [`Discount${o.couponCode ? ` (${esc(o.couponCode)})` : ""}: -${formatINR(o.discount)}`] : []),
     `Shipping: ${o.shipping === 0 ? "Free" : formatINR(o.shipping)}`,
     `<b>Total: ${formatINR(o.total)}</b>`,
   ];

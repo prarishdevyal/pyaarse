@@ -27,6 +27,7 @@ export const checkoutSchema = z.object({
   state: z.string().trim().refine(isIndianState, "Please choose your state"),
   pincode: z.string().trim().regex(/^\d{6}$/, "Pincode must be 6 digits"),
   notes: z.string().trim().max(500).default(""),
+  couponCode: z.string().trim().max(30).optional().default(""),
   items: cartItems.min(1, "Your cart is empty.").refine(noDuplicates, "Duplicate items in cart."),
 });
 
@@ -79,11 +80,12 @@ export const productFieldsSchema = z.object({
 });
 
 /** Problems with the variant rows, keyed by row index (empty = all fine). */
-export function variantProblems(variants: { name: string; price: number; stock: number }[]): Record<number, string> {
+export function variantProblems(variants: { name: string; price: number; salePrice?: number | null; stock: number }[]): Record<number, string> {
   const out: Record<number, string> = {};
   variants.forEach((v, i) => {
     if (!v.name.trim()) out[i] = "Give this variant a name, e.g. 200g.";
     else if (!Number.isInteger(v.price) || v.price < 1) out[i] = "Price must be at least ₹1.";
+    else if (v.salePrice != null && (!Number.isInteger(v.salePrice) || v.salePrice < 1 || v.salePrice >= v.price)) out[i] = "Sale price must be lower than the price.";
     else if (!Number.isInteger(v.stock) || v.stock < 0) out[i] = "Stock can't be negative.";
   });
   const names = variants.map((v) => v.name.trim().toLowerCase());
@@ -108,3 +110,22 @@ export const setAdminPasswordSchema = z
     type: z.enum(["invite", "recovery"]),
   })
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "The passwords don't match" });
+
+const optionalWhole = (msg: string) =>
+  z.string().trim().refine((v) => v === "" || /^\d{1,7}$/.test(v), msg).transform((v) => (v === "" ? null : Number(v)));
+
+export const couponSchema = z
+  .object({
+    code: z
+      .string()
+      .transform((v) => v.trim().toUpperCase().replace(/\s+/g, ""))
+      .pipe(z.string().regex(/^[A-Z0-9_-]{3,20}$/, "Use 3–20 letters or numbers, e.g. DIWALI10")),
+    kind: z.enum(["percent", "flat"]),
+    value: z.string().trim().regex(/^\d{1,6}$/, "Enter a whole number").transform(Number).pipe(z.number().min(1, "Enter at least 1")),
+    minSubtotal: optionalWhole("Minimum order must be a whole rupee amount").transform((v) => v ?? 0),
+    maxDiscount: optionalWhole("Max discount must be a whole rupee amount"),
+    usageLimit: optionalWhole("Usage limit must be a whole number"),
+    expiresOn: z.string().trim().refine((v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), "Pick a date"),
+  })
+  .refine((c) => c.kind !== "percent" || c.value <= 90, { path: ["value"], message: "Percent off can be at most 90" })
+  .refine((c) => c.usageLimit === null || c.usageLimit >= 1, { path: ["usageLimit"], message: "Leave empty for unlimited, or enter at least 1" });

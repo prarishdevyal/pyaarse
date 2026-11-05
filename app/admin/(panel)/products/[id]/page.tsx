@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fromStoredPrices } from "@/lib/discounts";
 import { requireAdmin } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
@@ -33,7 +34,10 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
       </div>
       <AdminProductForm
         collections={collections}
-        initial={{ ...product, variants: variants.map((v) => ({ id: v.id, name: v.name, price: v.price, stock: v.stock })) }}
+        initial={{ ...product, variants: variants.map((v) => {
+          const { regular, sale } = fromStoredPrices(v);
+          return { id: v.id, name: v.name, price: regular, salePrice: sale, stock: v.stock };
+        }) }}
       />
     </div>
   );

@@ -24,6 +24,9 @@ export function ProductCard({ product }: { product: Card }) {
         >
           <HeartIcon key={String(saved)} width={18} height={18} filled={saved} className={saved ? "anim-pop" : undefined} />
         </button>
+        {product.inStock && product.minPriceWas !== null && (
+          <span className="absolute left-3 top-3 rounded-full bg-brand px-3 py-1 text-xs font-medium text-ivory">Sale</span>
+        )}
         {!product.inStock && (
           <span className="absolute left-3 top-3 rounded-full bg-charcoal/80 px-3 py-1 text-xs text-ivory">Out of stock</span>
         )}
@@ -31,7 +34,14 @@ export function ProductCard({ product }: { product: Card }) {
       <Link href={`/product/${product.slug}`} className="block p-4">
         <p className="font-serif text-xl leading-tight">{product.name}</p>
         <p className="mt-1 text-sm text-taupe">
-          {product.minPrice === null ? "Coming soon" : `From ${formatINR(product.minPrice)}`}
+          {product.minPrice === null ? (
+            "Coming soon"
+          ) : (
+            <>
+              From <span className={product.minPriceWas ? "font-medium text-brand" : undefined}>{formatINR(product.minPrice)}</span>
+              {product.minPriceWas && <s className="ml-1.5 text-taupe/80">{formatINR(product.minPriceWas)}</s>}
+            </>
+          )}
         </p>
       </Link>
     </div>

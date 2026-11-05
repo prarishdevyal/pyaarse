@@ -37,7 +37,10 @@ export const productVariants = pgTable("product_variants", {
     .notNull()
     .references(() => products.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  /** What the customer pays. */
   price: integer("price").notNull(),
+  /** Regular price when the variant is on sale (shown crossed out); null when not on sale. */
+  compareAtPrice: integer("compare_at_price"),
   stock: integer("stock").notNull().default(0),
   sortOrder: integer("sort_order").notNull().default(0),
 }).enableRLS();
@@ -59,6 +62,9 @@ export const orders = pgTable("orders", {
   pincode: text("pincode").notNull(),
   notes: text("notes").notNull().default(""),
   subtotal: integer("subtotal").notNull(),
+  /** Coupon discount taken off the subtotal. */
+  discount: integer("discount").notNull().default(0),
+  couponCode: text("coupon_code"),
   shipping: integer("shipping").notNull(),
   total: integer("total").notNull(),
   status: text("status", { enum: ORDER_STATUSES }).notNull().default("pending_payment"),
@@ -116,4 +122,26 @@ export const rateLimits = pgTable("rate_limits", {
   key: text("key").primaryKey(),
   count: integer("count").notNull(),
   resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
+}).enableRLS();
+
+export const COUPON_KINDS = ["percent", "flat"] as const;
+export type CouponKind = (typeof COUPON_KINDS)[number];
+
+/** Discount codes customers enter at checkout. */
+export const coupons = pgTable("coupons", {
+  id: serial("id").primaryKey(),
+  /** Stored upper-case. */
+  code: text("code").notNull().unique(),
+  kind: text("kind", { enum: COUPON_KINDS }).notNull(),
+  /** Percent (1–90) or rupees off. */
+  value: integer("value").notNull(),
+  minSubtotal: integer("min_subtotal").notNull().default(0),
+  /** Cap for percent coupons, in rupees; null = no cap. */
+  maxDiscount: integer("max_discount"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  /** null = unlimited. */
+  usageLimit: integer("usage_limit"),
+  usedCount: integer("used_count").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();

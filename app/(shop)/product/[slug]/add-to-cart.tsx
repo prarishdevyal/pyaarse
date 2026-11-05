@@ -8,8 +8,9 @@ import { HeartIcon } from "@/components/icons";
 import { AnimatedCount } from "@/components/animated-count";
 import { formatINR } from "@/lib/format";
 import { MAX_QTY_PER_VARIANT } from "@/lib/pricing";
+import { isOnSale, percentOff } from "@/lib/discounts";
 
-type Variant = { id: number; name: string; price: number; stock: number };
+type Variant = { id: number; name: string; price: number; compareAtPrice: number | null; stock: number };
 
 export function AddToCart({ product, variants }: { product: { id: number; name: string; slug: string; image: string }; variants: Variant[] }) {
   const { add, items } = useCart();
@@ -35,7 +36,15 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
 
   return (
     <div className="mt-4">
-      <p className="text-2xl font-medium">{formatINR(selected.price)}</p>
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className={`text-2xl font-medium ${isOnSale(selected) ? "text-brand" : ""}`}>{formatINR(selected.price)}</span>
+        {isOnSale(selected) && (
+          <>
+            <s className="text-lg text-taupe">{formatINR(selected.compareAtPrice!)}</s>
+            <span className="rounded-full bg-brand px-2.5 py-0.5 text-xs font-medium text-ivory">{percentOff(selected)}% off</span>
+          </>
+        )}
+      </p>
 
       {variants.length > 1 && (
         <div className="mt-6">

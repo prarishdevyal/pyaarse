@@ -10,11 +10,12 @@ import { isAllowedImageUrl } from "@/lib/images";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { clientIp, limits, TOO_MANY } from "@/lib/limits";
 import { slugify } from "@/lib/format";
+import { expiryFromDate, toStoredPrices } from "@/lib/discounts";
 import { canChangeStatus, isOrderStatus, shouldRestock } from "@/lib/order-status";
 import { saveSettings as storeSettings } from "@/lib/settings";
 import { restockOrders, sendInvoice } from "@/lib/orders";
 import { saveImage } from "@/lib/uploads";
-import { inviteAdminSchema, loginSchema, setAdminPasswordSchema, settingsSchema, variantProblems } from "@/lib/validation";
+import { couponSchema, inviteAdminSchema, loginSchema, setAdminPasswordSchema, settingsSchema, variantProblems } from "@/lib/validation";
 import { inviteAdmin, setUserRole } from "@/lib/users";
 import { cleanContentEdits } from "@/lib/content-defaults";
 import { inArray } from "drizzle-orm";
@@ -122,12 +123,45 @@ export async function changeUserRole(formData: FormData) {
   redirect(r.ok ? `/users?ok=${encodeURIComponent(r.message)}` : `/users?error=${encodeURIComponent(r.error)}`);
 }
 
+// ---------- Coupons ----------
+
+export async function createCoupon(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+  const parsed = couponSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const errs: Record<string, string> = {};
+    for (const i of parsed.error.issues) errs[String(i.path[0])] ??= i.message;
+    return { fieldErrors: errs };
+  }
+  const { expiresOn, ...c } = parsed.data;
+  const exists = await db.query.coupons.findFirst({ where: eq(schema.coupons.code, c.code) });
+  if (exists) return { fieldErrors: { code: `${c.code} already exists.` } };
+  await db.insert(schema.coupons).values({ ...c, maxDiscount: c.kind === "percent" ? c.maxDiscount : null, expiresAt: expiryFromDate(expiresOn) });
+  return { success: `${c.code} created.` };
+}
+
+export async function setCouponActive(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("id"));
+  if (Number.isInteger(id)) await db.update(schema.coupons).set({ isActive: formData.get("active") === "true" }).where(eq(schema.coupons.id, id));
+  redirect("/coupons");
+}
+
+export async function deleteCoupon(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("id"));
+  // Orders keep the code as text, so deleting a coupon doesn't change past orders.
+  if (Number.isInteger(id)) await db.delete(schema.coupons).where(eq(schema.coupons.id, id));
+  redirect("/coupons");
+}
+
 // ---------- Products ----------
 
 const variantSchema = z.object({
   id: z.number().int().positive().optional(),
   name: z.string().trim().min(1, "Variant name is required"),
   price: z.number().int().min(0, "Price can't be negative"),
+  salePrice: z.number().int().min(1).nullable().optional().default(null),
   stock: z.number().int().min(0, "Stock can't be negative"),
 });
 
@@ -203,7 +237,7 @@ export async function saveProduct(_prev: FormState, formData: FormData): Promise
       .delete(productVariants)
       .where(and(eq(productVariants.productId, productId!), keepIds.length ? notInArray(productVariants.id, keepIds) : undefined));
     for (const [sortOrder, v] of data.variants.entries()) {
-      const row = { name: v.name, price: v.price, stock: v.stock, sortOrder };
+      const row = { name: v.name, ...toStoredPrices(v.price, v.salePrice), stock: v.stock, sortOrder };
       if (v.id) {
         await tx.update(productVariants).set(row).where(and(eq(productVariants.id, v.id), eq(productVariants.productId, productId!)));
       } else {

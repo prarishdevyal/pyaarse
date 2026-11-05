@@ -8,7 +8,8 @@ import { FormField, invalidProps } from "./form-field";
 import { TrashIcon } from "./icons";
 import { ImageFileInput, type ImageInputState } from "./image-file-input";
 
-type Variant = { id?: number; name: string; price: number; stock: number };
+/** price = regular price; salePrice = optional lower price customers pay. */
+type Variant = { id?: number; name: string; price: number; salePrice: number | null; stock: number };
 type Initial = {
   id?: number;
   name: string;
@@ -24,7 +25,7 @@ type Initial = {
 export function AdminProductForm({ initial, collections }: { initial?: Initial; collections: { id: number; name: string }[] }) {
   const [state, action, pending] = useActionState(saveProduct, undefined);
   const [images, setImages] = useState<string[]>(initial?.images ?? []);
-  const [variants, setVariants] = useState<Variant[]>(initial?.variants.length ? initial.variants : [{ name: "Standard", price: 1, stock: 0 }]);
+  const [variants, setVariants] = useState<Variant[]>(initial?.variants.length ? initial.variants : [{ name: "Standard", price: 1, salePrice: null, stock: 0 }]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [upload, setUpload] = useState<ImageInputState>({ busy: false, tooLarge: false });
   const v = useValidation(productFieldsSchema.shape);
@@ -77,20 +78,31 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
       <section className="card space-y-3 bg-white p-5">
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-2xl">Variants</h2>
-          <button type="button" className="btn-secondary px-4 py-1.5" onClick={() => setVariants((vs) => [...vs, { name: "", price: 1, stock: 0 }])}>
+          <button type="button" className="btn-secondary px-4 py-1.5" onClick={() => setVariants((vs) => [...vs, { name: "", price: 1, salePrice: null, stock: 0 }])}>
             + Add variant
           </button>
         </div>
-        <p className="text-xs text-taupe">E.g. “100g”, “200g · Rose”. Each variant has its own price (₹) and stock.</p>
-        <div className="hidden grid-cols-[1fr_120px_100px_40px] gap-3 text-xs text-taupe sm:grid">
-          <span>Name</span><span>Price (₹)</span><span>Stock</span><span />
+        <p className="text-xs text-taupe">E.g. “100g”, “200g · Rose”. Each variant has its own price (₹) and stock. To put it on sale, add a sale price: customers see the regular price crossed out.</p>
+        <div className="hidden grid-cols-[1fr_110px_110px_90px_40px] gap-3 text-xs text-taupe sm:grid">
+          <span>Name</span><span>Price (₹)</span><span>Sale price (₹)</span><span>Stock</span><span />
         </div>
         {variants.map((v, i) => (
           <div key={v.id ?? `new-${i}`}>
-          <div className="grid grid-cols-[1fr_auto] gap-3 sm:grid-cols-[1fr_120px_100px_40px]">
+          <div className="grid grid-cols-[1fr_auto] gap-3 sm:grid-cols-[1fr_110px_110px_90px_40px]">
             <input className="input col-span-2 sm:col-span-1" placeholder="Variant name" aria-label="Variant name" aria-invalid={!!problems[i]} value={v.name} onChange={(e) => updateVariant(i, { name: e.target.value })} />
-            <div className="col-span-2 grid grid-cols-[1fr_1fr_40px] gap-3 sm:contents">
+            <div className="col-span-2 grid grid-cols-[1fr_1fr_1fr_40px] gap-3 sm:contents">
               <input className="input" type="number" min={1} step={1} aria-label="Price" aria-invalid={!!problems[i]} value={v.price} onChange={(e) => updateVariant(i, { price: Math.trunc(Number(e.target.value)) })} />
+              <input
+                className="input"
+                type="number"
+                min={1}
+                step={1}
+                aria-label="Sale price (optional)"
+                placeholder="—"
+                aria-invalid={!!problems[i]}
+                value={v.salePrice ?? ""}
+                onChange={(e) => updateVariant(i, { salePrice: e.target.value === "" ? null : Math.trunc(Number(e.target.value)) })}
+              />
               <input className="input" type="number" min={0} step={1} aria-label="Stock" value={v.stock} onChange={(e) => updateVariant(i, { stock: Math.trunc(Number(e.target.value)) })} />
               <button
                 type="button"

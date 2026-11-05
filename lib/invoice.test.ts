@@ -5,7 +5,7 @@ import { buildInvoicePdf, invoiceLabels, invoiceNumber, pdfMoney, pdfSafe, wrapT
 const data = {
   orderNumber: "PY1042", customerName: "Asha Rao", email: "asha@example.com", phone: "9876543210",
   addressLine: "12 MG Road", city: "Pune", state: "Maharashtra", pincode: "411001", notes: "",
-  subtotal: 998, shipping: 0, total: 998,
+  subtotal: 998, discount: 0, couponCode: null, shipping: 0, total: 998,
   items: [{ productName: "Rose Candle", variantName: "200g", unitPrice: 499, quantity: 2 }],
   invoiceDate: new Date("2026-11-05T10:00:00Z"),
   paid: true,
@@ -45,6 +45,10 @@ describe("buildInvoicePdf", () => {
     const doc = await PDFDocument.load(bytes);
     expect(doc.getPageCount()).toBe(1);
     expect(doc.getTitle()).toBe("Pyaarse invoice INV-PY1042");
+  });
+  it("includes a discount line", async () => {
+    const doc = await PDFDocument.load(await buildInvoicePdf({ ...data, discount: 100, couponCode: "DIWALI10", total: 898 }));
+    expect(doc.getPageCount()).toBe(1);
   });
   it("does not crash on names in other scripts or emoji", async () => {
     const bytes = await buildInvoicePdf({ ...data, customerName: "आशा 🕯️", addressLine: "१२ रोड" });

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { orderNumberFor } from "./format";
 import { expiryCutoff, pendingOrderTtlHours } from "./order-expiry";
@@ -10,18 +10,27 @@ import type { OrderSummary } from "./notify/types";
 import { buildTelegramMessage, sendTelegram } from "./notify/telegram";
 import { buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, orderAlertEmail, sendEmail } from "./notify/email";
 import { buildInvoicePdf, invoiceNumber } from "./invoice";
+import { couponDiscount, normalizeCode, totalsWithDiscount } from "./discounts";
 import { storeContact } from "./store";
 import { siteUrl } from "./hosts";
 
-const { orders, orderItems, productVariants, products } = schema;
+const { orders, orderItems, productVariants, products, coupons } = schema;
 
 class CheckoutError extends Error {}
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-/** Returns the items of the given orders to stock. Callers must hold the order rows locked. */
+/** Returns the items of the given orders to stock and frees their coupon uses. Callers must hold the order rows locked. */
 export async function restockOrders(tx: Tx, orderIds: number[]) {
   if (orderIds.length === 0) return;
+  const used = await tx
+    .select({ code: orders.couponCode, n: sql<number>`count(*)::int` })
+    .from(orders)
+    .where(and(inArray(orders.id, orderIds), isNotNull(orders.couponCode)))
+    .groupBy(orders.couponCode);
+  for (const u of used) {
+    if (u.code) await tx.update(coupons).set({ usedCount: sql`greatest(${coupons.usedCount} - ${u.n}, 0)` }).where(eq(coupons.code, u.code));
+  }
   const items = await tx.select().from(orderItems).where(inArray(orderItems.orderId, orderIds));
   for (const i of items) {
     if (i.variantId) {
@@ -79,6 +88,18 @@ export async function placeOrder(
       const priced = priceCart(input.items, variants, settings);
       if (!priced.ok) throw new CheckoutError(priced.error);
 
+      // The coupon row is locked so two orders can't both take its last use.
+      const code = input.couponCode ? normalizeCode(input.couponCode) : "";
+      let discount = 0;
+      if (code) {
+        const [coupon] = await tx.select().from(coupons).where(eq(coupons.code, code)).for("update");
+        const applied = couponDiscount(coupon, priced.subtotal);
+        if (!applied.ok) throw new CheckoutError(`Coupon ${code}: ${applied.error} Remove it to place the order without it.`);
+        discount = applied.discount;
+        await tx.update(coupons).set({ usedCount: sql`${coupons.usedCount} + 1` }).where(eq(coupons.id, coupon.id));
+      }
+      const totals = totalsWithDiscount(priced.subtotal, discount, settings);
+
       for (const l of priced.lines) {
         await tx
           .update(productVariants)
@@ -86,16 +107,18 @@ export async function placeOrder(
           .where(eq(productVariants.id, l.variantId));
       }
 
-      const { items: _, ...customer } = input;
+      const { items: _, couponCode: __, ...customer } = input;
       const [created] = await tx
         .insert(orders)
         .values({
           ...customer,
           orderNumber: `tmp-${crypto.randomUUID()}`,
           userId,
-          subtotal: priced.subtotal,
-          shipping: priced.shipping,
-          total: priced.total,
+          subtotal: totals.subtotal,
+          discount: totals.discount,
+          couponCode: discount ? code : null,
+          shipping: totals.shipping,
+          total: totals.total,
         })
         .returning({ id: orders.id });
       const orderNumber = orderNumberFor(created.id);
@@ -115,9 +138,11 @@ export async function placeOrder(
       const summary: OrderSummary = {
         ...customer,
         orderNumber,
-        subtotal: priced.subtotal,
-        shipping: priced.shipping,
-        total: priced.total,
+        subtotal: totals.subtotal,
+        discount: totals.discount,
+        couponCode: discount ? code : null,
+        shipping: totals.shipping,
+        total: totals.total,
         items: priced.lines,
       };
       return { order: { id: created.id, orderNumber }, summary };
@@ -161,6 +186,8 @@ export async function getOrderSummary(orderId: number): Promise<OrderSummary | n
     pincode: order.pincode,
     notes: order.notes,
     subtotal: order.subtotal,
+    discount: order.discount,
+    couponCode: order.couponCode,
     shipping: order.shipping,
     total: order.total,
     items: items.map((i) => ({ productName: i.productName, variantName: i.variantName, unitPrice: i.unitPrice, quantity: i.quantity })),

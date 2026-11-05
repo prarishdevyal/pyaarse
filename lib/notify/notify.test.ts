@@ -6,7 +6,7 @@ import type { OrderSummary } from "./types";
 const order: OrderSummary = {
   orderNumber: "PY1042", customerName: "Asha <b>", email: "asha@example.com", phone: "9876543210",
   addressLine: "12 MG Road", city: "Pune", state: "Maharashtra", pincode: "411001", notes: "Gift wrap please",
-  subtotal: 998, shipping: 79, total: 1077,
+  subtotal: 998, discount: 0, couponCode: null, shipping: 79, total: 1077,
   items: [{ productName: "Rose Candle", variantName: "200g", unitPrice: 499, quantity: 2 }],
 };
 
@@ -118,5 +118,19 @@ describe("admin invite emails", () => {
     const e = buildAdminAddedEmail("https://admin.pyaarse.net/login", "info@pyaarse.net");
     expect(e.subject).toContain("admin");
     expect(e.text).toContain("https://admin.pyaarse.net/login");
+  });
+});
+
+describe("discounts in notifications", () => {
+  const discounted = { ...order, discount: 100, couponCode: "DIWALI10", total: 977 };
+  it("shows the coupon and amount off in emails and Telegram", () => {
+    expect(buildConfirmationEmail(discounted).text).toContain("Discount (DIWALI10): -₹100");
+    expect(buildConfirmationEmail(discounted).html).toContain("−₹100");
+    expect(buildAdminOrderEmail(discounted).text).toContain("Discount (DIWALI10): -₹100");
+    expect(buildTelegramMessage(discounted)).toContain("Discount (DIWALI10): -₹100");
+  });
+  it("leaves the line out when there's no discount", () => {
+    expect(buildConfirmationEmail(order).text).not.toContain("Discount");
+    expect(buildTelegramMessage(order)).not.toContain("Discount");
   });
 });
