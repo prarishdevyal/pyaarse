@@ -30,7 +30,7 @@ jobs:
           SINCE: ${{ inputs.since }}
         run: |
           [[ "$SINCE" =~ ^[0-9]+[mhd]$ ]] || { echo "::error::since must look like 30m, 2h or 1d"; exit 1; }
-          npx -y vercel@64.7.0 logs --project "$PROJECT" --scope "$ORG" --environment production --since "$SINCE" --limit 500 --token "$TOKEN" > logs.txt 2>&1 || true
+          npx -y vercel@64.7.0 logs --project "$PROJECT" --environment production --since "$SINCE" --limit 500 --token "$TOKEN" > logs.txt 2>&1 || true
           cat logs.txt
           grep -iE "error|fail|invalid|timeout|\\[email\\]|\\[invoice\\]|\\[order notify\\]" logs.txt | head -40 | sed 's/^/::warning::/' || true
       - name: ${{ inputs.action }}
