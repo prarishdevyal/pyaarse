@@ -144,6 +144,41 @@ export function buildAdminOrderEmail(o: OrderSummary, adminOrderUrl?: string): {
   return { subject, text, html };
 }
 
+/** Invite to the admin portal for someone without an account yet. The link lets them choose a password. */
+export function buildAdminInviteEmail(link: string, invitedBy: string): { subject: string; text: string; html: string } {
+  const subject = "You're invited to the Pyaarse admin";
+  const text = [
+    `Hi,`,
+    ``,
+    `${invitedBy} has invited you to help run the Pyaarse shop.`,
+    `Choose a password to set up your admin account (the link works for 24 hours):`,
+    link,
+    ``,
+    `If you weren't expecting this, you can ignore this email.`,
+  ].join("\n");
+  const html = page(`<p>Hi,</p>
+    <p>${esc(invitedBy)} has invited you to help run the Pyaarse shop.</p>
+    <p style="margin:28px 0"><a href="${esc(link)}" style="background:#89211E;color:#FFFDF6;padding:12px 24px;border-radius:999px;text-decoration:none">Set your password</a></p>
+    <p style="color:#8B817A;font-size:14px">The link works for 24 hours. If you weren't expecting this, you can ignore this email.</p>`);
+  return { subject, text, html };
+}
+
+/** Sent to an existing account that has just been made an admin. */
+export function buildAdminAddedEmail(loginUrl: string, addedBy: string): { subject: string; text: string; html: string } {
+  const subject = "You now have access to the Pyaarse admin";
+  const text = [
+    `Hi,`,
+    ``,
+    `${addedBy} has given your account admin access to the Pyaarse shop.`,
+    `Log in with your usual email and password at ${loginUrl}`,
+  ].join("\n");
+  const html = page(`<p>Hi,</p>
+    <p>${esc(addedBy)} has given your account admin access to the Pyaarse shop.</p>
+    <p style="margin:28px 0"><a href="${esc(loginUrl)}" style="background:#89211E;color:#FFFDF6;padding:12px 24px;border-radius:999px;text-decoration:none">Open the admin</a></p>
+    <p style="color:#8B817A;font-size:14px">Log in with your usual email and password.</p>`);
+  return { subject, text, html };
+}
+
 /** Where new-order alerts go: ORDER_ALERT_EMAIL, else the SMTP mailbox itself. */
 export function orderAlertEmail(env: Record<string, string | undefined> = process.env): string | undefined {
   return env.ORDER_ALERT_EMAIL || (env.SMTP_USER?.includes("@") ? env.SMTP_USER : undefined);

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { MAX_CART_LINES, MAX_QTY_PER_VARIANT } from "./pricing";
 import { isIndianState } from "./india";
+import { MIN_ADMIN_PASSWORD_LENGTH } from "./admin-bootstrap";
 
 /** Single-line text: collapses newlines/tabs so customers can't add fake lines to emails or alerts. */
 const line = (min: number, max: number, msg: string) =>
@@ -91,3 +92,19 @@ export function variantProblems(variants: { name: string; price: number; stock: 
   });
   return out;
 }
+
+export const inviteAdminSchema = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email("Please enter a valid email")),
+});
+
+export const setAdminPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(MIN_ADMIN_PASSWORD_LENGTH, `Use at least ${MIN_ADMIN_PASSWORD_LENGTH} characters`)
+      .max(72, "Password must be at most 72 characters"),
+    confirm: z.string(),
+    token_hash: z.string().min(10, "This link is incomplete. Ask for a new invite."),
+    type: z.enum(["invite", "recovery"]),
+  })
+  .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "The passwords don't match" });

@@ -14,7 +14,8 @@ import { canChangeStatus, isOrderStatus, shouldRestock } from "@/lib/order-statu
 import { saveSettings as storeSettings } from "@/lib/settings";
 import { restockOrders, sendInvoice } from "@/lib/orders";
 import { saveImage } from "@/lib/uploads";
-import { loginSchema, settingsSchema, variantProblems } from "@/lib/validation";
+import { inviteAdminSchema, loginSchema, setAdminPasswordSchema, settingsSchema, variantProblems } from "@/lib/validation";
+import { inviteAdmin, setUserRole } from "@/lib/users";
 import { cleanContentEdits } from "@/lib/content-defaults";
 import { inArray } from "drizzle-orm";
 import type { FormState } from "@/app/actions";
@@ -36,6 +37,28 @@ export async function adminLogin(_prev: FormState, formData: FormData): Promise<
     if (data.session) await supabase.auth.signOut({ scope: "local" });
     return { error: "Incorrect email or password." };
   }
+  redirect("/");
+}
+
+/** Invite link landing: verifies the emailed token, sets the password, signs in to the admin. */
+export async function completeAdminInvite(_prev: FormState, formData: FormData): Promise<FormState> {
+  const parsed = setAdminPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const errs: Record<string, string> = {};
+    for (const i of parsed.error.issues) errs[String(i.path[0])] ??= i.message;
+    if (errs.token_hash || errs.type) return { error: "This link is incomplete. Ask an admin to send a new invite." };
+    return { fieldErrors: errs };
+  }
+  if (!await limits.adminLoginByIp.hit(await clientIp())) return { error: TOO_MANY };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.verifyOtp({ token_hash: parsed.data.token_hash, type: parsed.data.type });
+  if (error || !data.user) return { error: "This link has expired or was already used. Ask an admin to send a new invite." };
+  if (data.user.app_metadata?.role !== "admin") {
+    await supabase.auth.signOut({ scope: "local" });
+    return { error: "This account doesn't have admin access." };
+  }
+  const { error: pwError } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (pwError) return { error: pwError.message };
   redirect("/");
 }
 
@@ -74,6 +97,29 @@ export async function resendInvoice(formData: FormData) {
 
 function invoiceResultUrl(id: number, r: Awaited<ReturnType<typeof sendInvoice>>): string {
   return r.ok ? `/orders/${id}?invoice=sent` : `/orders/${id}?invoice=failed&reason=${encodeURIComponent(r.error.slice(0, 200))}`;
+}
+
+// ---------- Users ----------
+
+export async function inviteAdminAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const actor = await requireAdmin();
+  const parsed = inviteAdminSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { fieldErrors: { email: parsed.error.issues[0].message } };
+  try {
+    const r = await inviteAdmin(actor, parsed.data.email);
+    return r.ok ? { success: r.message } : { error: r.error };
+  } catch (e) {
+    console.error("[invite admin]", e);
+    return { error: `Couldn't send the invite: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+export async function changeUserRole(formData: FormData) {
+  const actor = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const makeAdmin = formData.get("role") === "admin";
+  const r = await setUserRole(actor, id, makeAdmin).catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
+  redirect(r.ok ? `/users?ok=${encodeURIComponent(r.message)}` : `/users?error=${encodeURIComponent(r.error)}`);
 }
 
 // ---------- Products ----------

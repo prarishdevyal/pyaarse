@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildContactTelegramMessage, buildTelegramMessage } from "./telegram";
-import { buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, emailProvider, mailFrom, orderAlertEmail, smtpOptions } from "./email";
+import { buildAdminAddedEmail, buildAdminInviteEmail, buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, emailProvider, mailFrom, orderAlertEmail, smtpOptions } from "./email";
 import type { OrderSummary } from "./types";
 
 const order: OrderSummary = {
@@ -104,5 +104,19 @@ describe("orderAlertEmail", () => {
     expect(orderAlertEmail({ SMTP_USER: "info@pyaarse.net" })).toBe("info@pyaarse.net");
     expect(orderAlertEmail({ SMTP_USER: "apikey" })).toBeUndefined();
     expect(orderAlertEmail({})).toBeUndefined();
+  });
+});
+
+describe("admin invite emails", () => {
+  it("links to set a password and escapes the inviter", () => {
+    const e = buildAdminInviteEmail("https://admin.pyaarse.net/set-password?token_hash=abc&type=invite", "<x>@pyaarse.net");
+    expect(e.text).toContain("https://admin.pyaarse.net/set-password?token_hash=abc&type=invite");
+    expect(e.html).toContain("token_hash=abc&amp;type=invite");
+    expect(e.html).toContain("&lt;x&gt;@pyaarse.net");
+  });
+  it("tells existing accounts where to log in", () => {
+    const e = buildAdminAddedEmail("https://admin.pyaarse.net/login", "info@pyaarse.net");
+    expect(e.subject).toContain("admin");
+    expect(e.text).toContain("https://admin.pyaarse.net/login");
   });
 });
