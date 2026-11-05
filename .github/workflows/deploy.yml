@@ -47,14 +47,14 @@ jobs:
             [ -n "${!s}" ] || { echo "::error::Repository secret $s is not set (Settings → Secrets and variables → Actions)"; exit 1; }
           done
       - run: npm install --global ${{ env.VERCEL_CLI }}
-      - name: Pull Vercel production settings
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-      # Runs the vercel-build script: database migrations, then next build.
-      - name: Build
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Deploy
+      # Builds on Vercel (where Sensitive env vars like DATABASE_URL are readable) and streams the
+      # build log here. The vercel-build script runs database migrations, then next build.
+      - name: Build and deploy on Vercel
         id: deploy
-        run: echo "url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})" >> "$GITHUB_OUTPUT"
+        run: |
+          set -o pipefail
+          vercel deploy --prod --logs --yes --token=${{ secrets.VERCEL_TOKEN }} 2>&1 | tee deploy.log
+          echo "url=$(grep -Eo 'https://[a-z0-9.-]+\.vercel\.app' deploy.log | tail -1)" >> "$GITHUB_OUTPUT"
       - name: Smoke test the live site (runtime logs are captured below)
         run: |
           vercel logs "${{ steps.deploy.outputs.url }}" --token=${{ secrets.VERCEL_TOKEN }} > runtime.log 2>&1 &
