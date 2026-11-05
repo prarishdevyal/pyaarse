@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { moveItem } from "@/lib/move-item";
 import { compressImage, formatMB, totalBytes, UPLOAD_BUDGET_BYTES } from "@/lib/image-compress";
 import { mergePicked } from "@/lib/picked-files";
 
@@ -68,15 +69,21 @@ export function ImageFileInput({
             <li key={`${f.name}-${f.size}-${f.lastModified}`} className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {previews[i] && <img src={previews[i]} alt="" className="h-24 w-24 rounded-lg object-cover ring-2 ring-brand/40" />}
-              <span className="absolute left-1 top-1 rounded bg-brand px-1.5 text-[10px] font-medium text-ivory">New</span>
+              <span className="absolute left-1 top-1 rounded bg-brand px-1.5 text-[10px] font-medium text-ivory">New {i + 1}</span>
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="absolute bottom-1 right-1 rounded bg-ivory/90 px-1.5 text-xs text-brand"
+                className="absolute right-1 top-1 rounded bg-ivory/90 px-1.5 text-xs text-brand"
                 aria-label={`Remove ${f.name}`}
               >
                 ✕
               </button>
+              {files.length > 1 && (
+                <div className="absolute inset-x-1 bottom-1 flex justify-between">
+                  <button type="button" className="step-btn rounded bg-ivory/90 px-1.5 text-xs disabled:opacity-30" disabled={i === 0} onClick={() => commit(moveItem(files, i, i - 1))} aria-label={`Move new photo ${i + 1} left`}>←</button>
+                  <button type="button" className="step-btn rounded bg-ivory/90 px-1.5 text-xs disabled:opacity-30" disabled={i === files.length - 1} onClick={() => commit(moveItem(files, i, i + 1))} aria-label={`Move new photo ${i + 1} right`}>→</button>
+                </div>
+              )}
             </li>
           ))}
         </ul>

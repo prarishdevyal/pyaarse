@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { moveItem } from "@/lib/move-item";
 import { SlugField } from "@/components/slug-field";
 import { saveProduct } from "@/app/admin/actions";
 import { productFieldsSchema, variantProblems } from "@/lib/validation";
@@ -119,20 +120,32 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
 
       <section className="card space-y-3 bg-white p-5">
         <h2 className="font-serif text-2xl">Images</h2>
-        <p className="text-xs text-taupe">Add as many photos as you like; pick several at once or one at a time. The first is the main photo (use “Main” to change it). JPG, PNG or WebP.</p>
+        <p className="text-xs text-taupe">Add as many photos as you like; pick several at once or one at a time. Use ← → to set the order customers see; the first is the main photo. New photos are added after the saved ones; once saved, you can move them anywhere. JPG, PNG or WebP.</p>
         <div className="flex flex-wrap gap-3">
           {images.map((src, i) => (
             <div key={src} className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" className="h-24 w-24 rounded-lg object-cover" />
-              <div className="absolute inset-x-1 bottom-1 flex justify-between">
-                {i > 0 ? (
-                  <button type="button" className="rounded bg-ivory/90 px-1.5 text-xs" onClick={() => setImages((im) => [src, ...im.filter((x) => x !== src)])}>
+              <img src={src} alt={`Photo ${i + 1}`} className={`h-24 w-24 rounded-lg object-cover ${i === 0 ? "ring-2 ring-brand" : ""}`} />
+              <span className="absolute left-1 top-1 rounded bg-ivory/90 px-1.5 text-[10px] font-medium">{i === 0 ? "Main" : i + 1}</span>
+              <button
+                type="button"
+                className="absolute right-1 top-1 rounded bg-ivory/90 px-1.5 text-xs text-brand"
+                onClick={() => setImages((im) => im.filter((x) => x !== src))}
+                aria-label={`Remove photo ${i + 1}`}
+              >
+                ✕
+              </button>
+              <div className="absolute inset-x-1 bottom-1 flex justify-between gap-1">
+                <button type="button" className="step-btn rounded bg-ivory/90 px-1.5 text-xs disabled:opacity-30" disabled={i === 0} onClick={() => setImages((im) => moveItem(im, i, i - 1))} aria-label={`Move photo ${i + 1} left`}>
+                  ←
+                </button>
+                {i > 0 && (
+                  <button type="button" className="rounded bg-ivory/90 px-1.5 text-[10px]" onClick={() => setImages((im) => moveItem(im, i, 0))} aria-label={`Make photo ${i + 1} the main photo`}>
                     Main
                   </button>
-                ) : <span />}
-                <button type="button" className="rounded bg-ivory/90 px-1.5 text-xs text-brand" onClick={() => setImages((im) => im.filter((x) => x !== src))}>
-                  ✕
+                )}
+                <button type="button" className="step-btn rounded bg-ivory/90 px-1.5 text-xs disabled:opacity-30" disabled={i === images.length - 1} onClick={() => setImages((im) => moveItem(im, i, i + 1))} aria-label={`Move photo ${i + 1} right`}>
+                  →
                 </button>
               </div>
             </div>
