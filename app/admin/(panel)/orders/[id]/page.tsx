@@ -7,15 +7,23 @@ import { ORDER_STATUSES } from "@/lib/db/schema";
 import { formatINR, STATUS_LABELS, toWhatsAppNumber } from "@/lib/format";
 import { canChangeStatus } from "@/lib/order-status";
 import { StatusBadge } from "@/components/status-badge";
-import { updateOrderStatus } from "../../../actions";
+import { resendInvoice, updateOrderStatus } from "../../../actions";
 
-export default async function AdminOrderPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminOrderPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ invoice?: string; reason?: string }>;
+}) {
   await requireAdmin();
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();
   const order = await db.query.orders.findFirst({ where: eq(schema.orders.id, id) });
   if (!order) notFound();
   const items = await db.select().from(schema.orderItems).where(eq(schema.orderItems.orderId, id));
+  const { invoice, reason } = await searchParams;
+  const hasInvoice = order.status === "paid" || order.status === "shipped" || order.status === "delivered";
   const options = ORDER_STATUSES.filter((s) => canChangeStatus(order.status, s));
   const NEXT: Partial<Record<string, string>> = { pending_payment: "paid", paid: "shipped", shipped: "delivered" };
   const suggested = NEXT[order.status] ?? options[0];
@@ -30,6 +38,14 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
         <h1 className="font-serif text-4xl text-brand">Order {order.orderNumber}</h1>
         <StatusBadge status={order.status} />
       </div>
+      {invoice === "sent" && (
+        <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900" role="status">Invoice emailed to {order.email}.</p>
+      )}
+      {invoice === "failed" && (
+        <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert">
+          The invoice email couldn&apos;t be sent{reason ? `: ${reason}` : "."} The order status was still saved. Fix the email settings, then use Resend invoice.
+        </p>
+      )}
       <p className="text-sm text-taupe">Placed {order.createdAt.toLocaleString("en-IN", { dateStyle: "full", timeStyle: "short" })}</p>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -71,6 +87,16 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
           >
             Message on WhatsApp
           </a>
+          {hasInvoice && (
+            <div className="card space-y-3 bg-white p-5">
+              <h2 className="font-serif text-xl">Invoice</h2>
+              <a href={`/orders/${order.id}/invoice`} target="_blank" rel="noreferrer" className="btn-secondary w-full">View invoice (PDF)</a>
+              <form action={resendInvoice}>
+                <input type="hidden" name="id" value={order.id} />
+                <button className="w-full text-sm text-brand underline underline-offset-4">Resend invoice to customer</button>
+              </form>
+            </div>
+          )}
           <div className="card bg-white p-5">
             <h2 className="mb-3 font-serif text-xl">Update status</h2>
             {options.length === 0 ? (
@@ -82,7 +108,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                   {options.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
                 </select>
                 <button className="btn-primary w-full">Save status</button>
-                <p className="text-xs text-taupe">Cancelling returns the items to stock and can&apos;t be undone.</p>
+                <p className="text-xs text-taupe">Marking an order Paid emails the customer their invoice. Cancelling returns the items to stock and can&apos;t be undone.</p>
               </form>
             )}
           </div>

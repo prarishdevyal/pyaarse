@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { phoneInputProps } from "@/lib/phone-input";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { checkout } from "@/app/actions";
@@ -80,7 +81,7 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
           <legend className="mb-4 font-serif text-2xl">Contact</legend>
           <div className="sm:col-span-2">{field("customerName", "Full name", { defaultValue: user?.name, autoComplete: "name", required: true })}</div>
           {field("email", "Email", { type: "email", defaultValue: user?.email, autoComplete: "email", required: true })}
-          {field("phone", "WhatsApp number", { type: "tel", defaultValue: user?.phone, autoComplete: "tel", placeholder: "10-digit mobile", required: true })}
+          {field("phone", "WhatsApp number", { ...phoneInputProps, defaultValue: user?.phone, autoComplete: "tel", placeholder: "10-digit mobile", required: true })}
         </fieldset>
         <fieldset className="grid gap-4 sm:grid-cols-2">
           <legend className="mb-4 font-serif text-2xl">Shipping address</legend>

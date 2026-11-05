@@ -8,7 +8,10 @@ import { getSettings } from "./settings";
 import type { CheckoutInput } from "./validation";
 import type { OrderSummary } from "./notify/types";
 import { buildTelegramMessage, sendTelegram } from "./notify/telegram";
-import { buildConfirmationEmail, sendEmail } from "./notify/email";
+import { buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, orderAlertEmail, sendEmail } from "./notify/email";
+import { buildInvoicePdf, invoiceNumber } from "./invoice";
+import { storeContact } from "./store";
+import { siteUrl } from "./hosts";
 
 const { orders, orderItems, productVariants, products } = schema;
 
@@ -131,10 +134,62 @@ export async function placeOrder(
 /** Notifications must never fail an order that is already saved. */
 async function notifyNewOrder(orderId: number, summary: OrderSummary, emailCustomer: boolean) {
   const adminBase = process.env.ADMIN_URL;
+  const adminOrderUrl = adminBase ? `${adminBase}/orders/${orderId}` : undefined;
+  const alertTo = orderAlertEmail();
   const results = await Promise.allSettled([
-    sendTelegram(buildTelegramMessage(summary, adminBase ? `${adminBase}/orders/${orderId}` : undefined)),
+    sendTelegram(buildTelegramMessage(summary, adminOrderUrl)),
+    alertTo ? sendEmail(alertTo, buildAdminOrderEmail(summary, adminOrderUrl)) : Promise.resolve(),
     // The admin can switch customer confirmation emails off in Settings.
     emailCustomer ? sendEmail(summary.email, buildConfirmationEmail(summary)) : Promise.resolve(),
   ]);
   for (const r of results) if (r.status === "rejected") console.error("[order notify]", r.reason);
+}
+
+/** An order with its items, in the shape the emails and invoice use. */
+export async function getOrderSummary(orderId: number): Promise<OrderSummary | null> {
+  const order = await db.query.orders.findFirst({ where: eq(orders.id, orderId) });
+  if (!order) return null;
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  return {
+    orderNumber: order.orderNumber,
+    customerName: order.customerName,
+    email: order.email,
+    phone: order.phone,
+    addressLine: order.addressLine,
+    city: order.city,
+    state: order.state,
+    pincode: order.pincode,
+    notes: order.notes,
+    subtotal: order.subtotal,
+    shipping: order.shipping,
+    total: order.total,
+    items: items.map((i) => ({ productName: i.productName, variantName: i.variantName, unitPrice: i.unitPrice, quantity: i.quantity })),
+  };
+}
+
+export async function invoicePdfFor(summary: OrderSummary, invoiceDate = new Date()): Promise<Uint8Array> {
+  const store = storeContact();
+  return buildInvoicePdf({
+    ...summary,
+    invoiceDate,
+    store: { email: orderAlertEmail() ?? store.email, whatsapp: store.whatsapp, website: siteUrl().replace(/^https?:\/\//, "") },
+  });
+}
+
+/** Emails the customer their invoice PDF. Returns the error message instead of throwing, so the admin can see it. */
+export async function sendInvoice(orderId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const summary = await getOrderSummary(orderId);
+    if (!summary) return { ok: false, error: "Order not found" };
+    const no = invoiceNumber(summary.orderNumber);
+    const pdf = await invoicePdfFor(summary);
+    await sendEmail(summary.email, {
+      ...buildInvoiceEmail(summary, no),
+      attachments: [{ filename: `${no}.pdf`, content: pdf, contentType: "application/pdf" }],
+    });
+    return { ok: true };
+  } catch (e) {
+    console.error("[invoice]", e);
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }

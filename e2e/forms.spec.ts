@@ -49,6 +49,21 @@ test("contact form validates and sends nothing when empty", async ({ page }) => 
   expect(posts).toEqual([]);
 });
 
+test("WhatsApp number boxes take digits only and flag short numbers", async ({ page }) => {
+  await page.goto("/contact");
+  const posts = watchPosts(page);
+  const phone = page.getByLabel(/WhatsApp number/);
+  await phone.pressSequentially("98ab76-54x");
+  await expect(phone).toHaveValue("987654");
+  await phone.blur();
+  await expect(phone).toHaveAttribute("aria-invalid", "true");
+  await phone.fill("");
+  await phone.pressSequentially("9876543210999");
+  await expect(phone).toHaveValue("9876543210");
+  await expect(phone).not.toHaveAttribute("aria-invalid", "true");
+  expect(posts).toEqual([]);
+});
+
 test("login and register forms validate before sending", async ({ page }) => {
   for (const [path, button] of [["/login", "Log in"], ["/register", /Create/]] as const) {
     await page.goto(path);

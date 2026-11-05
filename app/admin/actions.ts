@@ -12,7 +12,7 @@ import { clientIp, limits, TOO_MANY } from "@/lib/limits";
 import { slugify } from "@/lib/format";
 import { canChangeStatus, isOrderStatus, shouldRestock } from "@/lib/order-status";
 import { saveSettings as storeSettings } from "@/lib/settings";
-import { restockOrders } from "@/lib/orders";
+import { restockOrders, sendInvoice } from "@/lib/orders";
 import { saveImage } from "@/lib/uploads";
 import { loginSchema, settingsSchema, variantProblems } from "@/lib/validation";
 import { cleanContentEdits } from "@/lib/content-defaults";
@@ -53,13 +53,27 @@ export async function updateOrderStatus(formData: FormData) {
   const to = formData.get("status");
   if (!Number.isInteger(id) || !isOrderStatus(to)) return;
 
-  await db.transaction(async (tx) => {
+  const from = await db.transaction(async (tx) => {
     const [order] = await tx.select().from(orders).where(eq(orders.id, id)).for("update");
-    if (!order || !canChangeStatus(order.status, to)) return;
+    if (!order || !canChangeStatus(order.status, to)) return null;
     if (shouldRestock(order.status, to)) await restockOrders(tx, [id]);
     await tx.update(orders).set({ status: to }).where(eq(orders.id, id));
+    return order.status;
   });
+  // Approving payment sends the customer their invoice.
+  if (from === "pending_payment" && to === "paid") redirect(invoiceResultUrl(id, await sendInvoice(id)));
   redirect(`/orders/${id}`);
+}
+
+export async function resendInvoice(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) return;
+  redirect(invoiceResultUrl(id, await sendInvoice(id)));
+}
+
+function invoiceResultUrl(id: number, r: Awaited<ReturnType<typeof sendInvoice>>): string {
+  return r.ok ? `/orders/${id}?invoice=sent` : `/orders/${id}?invoice=failed&reason=${encodeURIComponent(r.error.slice(0, 200))}`;
 }
 
 // ---------- Products ----------

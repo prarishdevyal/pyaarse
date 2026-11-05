@@ -5,6 +5,7 @@ import { sendContactMessage } from "@/app/actions";
 import { contactSchema } from "@/lib/validation";
 import { useValidation } from "@/components/use-validation";
 import { FormField, invalidProps } from "@/components/form-field";
+import { phoneInputProps } from "@/lib/phone-input";
 
 export function ContactForm({ defaults }: { defaults: { name: string; email: string } }) {
   const [state, action, pending] = useActionState(sendContactMessage, undefined);
@@ -32,7 +33,7 @@ export function ContactForm({ defaults }: { defaults: { name: string; email: str
         </FormField>
       </div>
       <FormField id="phone" label="WhatsApp number" optional error={v.error("phone")}>
-        <input {...ctl("phone")} type="tel" autoComplete="tel" placeholder="10-digit mobile" />
+        <input {...ctl("phone")} {...phoneInputProps} autoComplete="tel" placeholder="10-digit mobile" />
       </FormField>
       <FormField id="message" label="Message" error={v.error("message")} hint="At least 10 characters.">
         <textarea {...ctl("message")} rows={6} maxLength={2000} placeholder="Tell us about your order, a gift you're planning, or a bulk enquiry." />

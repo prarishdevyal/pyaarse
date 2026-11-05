@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildContactTelegramMessage, buildTelegramMessage } from "./telegram";
-import { buildConfirmationEmail, emailProvider, mailFrom, smtpOptions } from "./email";
+import { buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, emailProvider, mailFrom, orderAlertEmail, smtpOptions } from "./email";
 import type { OrderSummary } from "./types";
 
 const order: OrderSummary = {
@@ -70,5 +70,39 @@ describe("buildContactTelegramMessage", () => {
     expect(msg).toContain("&lt;b&gt;hi&lt;/b&gt; &amp; bye");
     expect(msg).toContain("a@b.co · 9876543210");
     expect(msg).toContain("https://admin.x/messages");
+  });
+});
+
+describe("buildAdminOrderEmail", () => {
+  const e = buildAdminOrderEmail(order, "https://admin.pyaarse.net/orders/42");
+  it("has the order, customer and links like the Telegram alert", () => {
+    expect(e.subject).toBe("New order PY1042: ₹1,077 from Asha <b>");
+    expect(e.text).toContain("Rose Candle (200g) x 2: ₹998");
+    expect(e.text).toContain("https://wa.me/919876543210");
+    expect(e.html).toContain("https://admin.pyaarse.net/orders/42");
+    expect(e.html).toContain("Gift wrap please");
+  });
+  it("escapes customer input in the HTML", () => {
+    expect(e.html).toContain("Asha &lt;b&gt;");
+    expect(e.html).not.toContain("Asha <b>");
+  });
+});
+
+describe("buildInvoiceEmail", () => {
+  it("confirms payment and names the attached invoice", () => {
+    const e = buildInvoiceEmail(order, "INV-PY1042");
+    expect(e.subject).toContain("INV-PY1042");
+    expect(e.text).toContain("received your payment for order PY1042");
+    expect(e.html).toContain("Total paid");
+    expect(e.html).not.toContain("Asha <b>");
+  });
+});
+
+describe("orderAlertEmail", () => {
+  it("uses ORDER_ALERT_EMAIL, else the SMTP mailbox, else nothing", () => {
+    expect(orderAlertEmail({ ORDER_ALERT_EMAIL: "owner@x.in", SMTP_USER: "info@pyaarse.net" })).toBe("owner@x.in");
+    expect(orderAlertEmail({ SMTP_USER: "info@pyaarse.net" })).toBe("info@pyaarse.net");
+    expect(orderAlertEmail({ SMTP_USER: "apikey" })).toBeUndefined();
+    expect(orderAlertEmail({})).toBeUndefined();
   });
 });

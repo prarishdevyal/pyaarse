@@ -1,13 +1,16 @@
-name: Vercel deployments (status / cancel stuck)
+name: Vercel deployments (status / cancel stuck / logs)
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: "status = list deployments and show logs of unfinished ones; cancel-stuck = cancel queued/building ones older than 5 minutes"
+        description: "status = list deployments and show logs of unfinished ones; cancel-stuck = cancel queued/building ones older than 5 minutes; logs = production runtime logs"
         type: choice
-        options: [status, cancel-stuck]
+        options: [status, cancel-stuck, logs]
         default: status
+      since:
+        description: "logs only: how far back to look, e.g. 30m, 2h, 1d"
+        default: "2h"
 
 permissions:
   contents: read
@@ -21,7 +24,17 @@ jobs:
       PROJECT: ${{ secrets.VERCEL_PROJECT_ID }}
       ORG: ${{ secrets.VERCEL_ORG_ID }}
     steps:
+      - name: logs
+        if: inputs.action == 'logs'
+        env:
+          SINCE: ${{ inputs.since }}
+        run: |
+          [[ "$SINCE" =~ ^[0-9]+[mhd]$ ]] || { echo "::error::since must look like 30m, 2h or 1d"; exit 1; }
+          npx -y vercel@64.7.0 logs --project "$PROJECT" --scope "$ORG" --environment production --since "$SINCE" --limit 500 --token "$TOKEN" > logs.txt 2>&1 || true
+          cat logs.txt
+          grep -iE "error|fail|invalid|timeout|\\[email\\]|\\[invoice\\]|\\[order notify\\]" logs.txt | head -40 | sed 's/^/::warning::/' || true
       - name: ${{ inputs.action }}
+        if: inputs.action != 'logs'
         run: |
           api() { # tries with the team id first, then as a personal account
             local method=$1 path=$2 sep='?'; [[ $path == *\?* ]] && sep='&'
