@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildContactTelegramMessage, buildTelegramMessage } from "./telegram";
-import { buildAdminAddedEmail, buildAdminInviteEmail, buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, emailProvider, mailFrom, orderAlertEmail, smtpOptions } from "./email";
+import { buildPasswordResetEmail, buildAdminAddedEmail, buildAdminInviteEmail, buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, emailProvider, mailFrom, orderAlertEmail, smtpOptions } from "./email";
 import type { OrderSummary } from "./types";
 
 const order: OrderSummary = {
@@ -132,5 +132,16 @@ describe("discounts in notifications", () => {
   it("leaves the line out when there's no discount", () => {
     expect(buildConfirmationEmail(order).text).not.toContain("Discount");
     expect(buildTelegramMessage(order)).not.toContain("Discount");
+  });
+});
+
+describe("buildPasswordResetEmail", () => {
+  it("links to the reset page and reassures people who didn't ask", () => {
+    const e = buildPasswordResetEmail("https://www.pyaarse.net/reset-password?token_hash=abc&type=recovery");
+    expect(e.subject).toBe("Reset your Pyaarse password");
+    expect(e.text).toContain("https://www.pyaarse.net/reset-password?token_hash=abc&type=recovery");
+    expect(e.html).toContain("token_hash=abc&amp;type=recovery");
+    expect(e.text).toContain("ignore this email");
+    expect(buildPasswordResetEmail("https://admin.pyaarse.net/set-password", true).subject).toBe("Reset your Pyaarse admin password");
   });
 });

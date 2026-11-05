@@ -31,7 +31,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           ]}
         />
       </div>
-      <p className="mt-6 text-center text-sm">
+      <p className="mt-4 text-center text-sm">
+        <Link href="/forgot-password" className="text-brand underline">Forgot your password?</Link>
+      </p>
+      <p className="mt-3 text-center text-sm">
         New to Pyaarse? <Link href={`/register${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="text-brand underline">Create an account</Link>
       </p>
     </div>

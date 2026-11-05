@@ -188,6 +188,25 @@ export function buildAdminAddedEmail(loginUrl: string, addedBy: string): { subje
   return { subject, text, html };
 }
 
+/** "Reset your password" email. The link works once, for about an hour. */
+export function buildPasswordResetEmail(link: string, forAdmin = false): { subject: string; text: string; html: string } {
+  const subject = forAdmin ? "Reset your Pyaarse admin password" : "Reset your Pyaarse password";
+  const text = [
+    `Hi,`,
+    ``,
+    `We got a request to reset the password for your Pyaarse ${forAdmin ? "admin " : ""}account.`,
+    `Choose a new password here (the link works once, for about an hour):`,
+    link,
+    ``,
+    `If you didn't ask for this, you can ignore this email. Your password won't change.`,
+  ].join("\n");
+  const html = page(`<p>Hi,</p>
+    <p>We got a request to reset the password for your Pyaarse ${forAdmin ? "admin " : ""}account.</p>
+    <p style="margin:28px 0"><a href="${esc(link)}" style="background:#89211E;color:#FFFDF6;padding:12px 24px;border-radius:999px;text-decoration:none">Choose a new password</a></p>
+    <p style="color:#8B817A;font-size:14px">The link works once, for about an hour. If you didn't ask for this, you can ignore this email. Your password won't change.</p>`);
+  return { subject, text, html };
+}
+
 /** Where new-order alerts go: ORDER_ALERT_EMAIL, else the SMTP mailbox itself. */
 export function orderAlertEmail(env: Record<string, string | undefined> = process.env): string | undefined {
   return env.ORDER_ALERT_EMAIL || (env.SMTP_USER?.includes("@") ? env.SMTP_USER : undefined);

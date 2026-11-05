@@ -15,8 +15,9 @@ import { canChangeStatus, isOrderStatus, shouldRestock } from "@/lib/order-statu
 import { saveSettings as storeSettings } from "@/lib/settings";
 import { restockOrders, sendInvoice } from "@/lib/orders";
 import { removeImages, saveImage } from "@/lib/uploads";
-import { couponSchema, inviteAdminSchema, loginSchema, setAdminPasswordSchema, settingsSchema, variantProblems } from "@/lib/validation";
+import { couponSchema, forgotPasswordSchema, inviteAdminSchema, loginSchema, setAdminPasswordSchema, settingsSchema, variantProblems } from "@/lib/validation";
 import { inviteAdmin, setUserRole } from "@/lib/users";
+import { resetSentMessage, sendPasswordResetLink } from "@/lib/password-reset";
 import { cleanContentEdits } from "@/lib/content-defaults";
 import { inArray } from "drizzle-orm";
 import type { FormState } from "@/app/actions";
@@ -53,7 +54,7 @@ export async function completeAdminInvite(_prev: FormState, formData: FormData):
   if (!await limits.adminLoginByIp.hit(await clientIp())) return { error: TOO_MANY };
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.verifyOtp({ token_hash: parsed.data.token_hash, type: parsed.data.type });
-  if (error || !data.user) return { error: "This link has expired or was already used. Ask an admin to send a new invite." };
+  if (error || !data.user) return { error: "This link has expired or was already used. Use “Forgot password?” on the sign-in page, or ask an admin for a new invite." };
   if (data.user.app_metadata?.role !== "admin") {
     await supabase.auth.signOut({ scope: "local" });
     return { error: "This account doesn't have admin access." };
@@ -61,6 +62,23 @@ export async function completeAdminInvite(_prev: FormState, formData: FormData):
   const { error: pwError } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (pwError) return { error: pwError.message };
   redirect("/");
+}
+
+/** Admin "forgot password": emails a link to the admin set-password page, only for admin accounts. */
+export async function adminRequestPasswordReset(_prev: FormState, formData: FormData): Promise<FormState> {
+  const parsed = forgotPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { fieldErrors: { email: parsed.error.issues[0].message } };
+  const ipOk = await limits.resetByIp.hit(await clientIp());
+  if (!ipOk || !await limits.resetByEmail.hit(parsed.data.email)) return { error: TOO_MANY };
+  const base = process.env.ADMIN_URL;
+  if (!base) return { error: "ADMIN_URL is not set on the server." };
+  try {
+    await sendPasswordResetLink(parsed.data.email, { base, path: "/set-password", adminOnly: true });
+  } catch (e) {
+    console.error("[admin password reset]", e);
+    return { error: "We couldn't send the email just now. Please try again in a few minutes." };
+  }
+  return { success: resetSentMessage(parsed.data.email) };
 }
 
 export async function adminLogout() {

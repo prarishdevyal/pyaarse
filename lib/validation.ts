@@ -129,3 +129,15 @@ export const couponSchema = z
   })
   .refine((c) => c.kind !== "percent" || c.value <= 90, { path: ["value"], message: "Percent off can be at most 90" })
   .refine((c) => c.usageLimit === null || c.usageLimit >= 1, { path: ["usageLimit"], message: "Leave empty for unlimited, or enter at least 1" });
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email("Please enter a valid email")),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    password: z.string().min(8, "Password must be at least 8 characters").max(72, "Password must be at most 72 characters"),
+    confirm: z.string(),
+    token_hash: z.string().min(10, "This link is incomplete. Ask for a new one."),
+  })
+  .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "The passwords don't match" });

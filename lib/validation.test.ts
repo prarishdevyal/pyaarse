@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cartItemsSchema, checkoutSchema, contactSchema, couponSchema, settingsSchema, variantProblems } from "./validation";
+import { cartItemsSchema, checkoutSchema, contactSchema, couponSchema, resetPasswordSchema, settingsSchema, variantProblems } from "./validation";
 
 const base = {
   customerName: "Asha", email: " Asha@Example.com ", phone: "98765 43210",
@@ -103,5 +103,15 @@ describe("couponSchema", () => {
     expect(couponSchema.safeParse({ ...base, value: "0" }).success).toBe(false);
     expect(couponSchema.safeParse({ ...base, usageLimit: "0" }).success).toBe(false);
     expect(couponSchema.safeParse({ ...base, minSubtotal: "9.5" }).success).toBe(false);
+  });
+});
+
+describe("resetPasswordSchema", () => {
+  const ok = { password: "new-secret-1", confirm: "new-secret-1", token_hash: "abcdefghijkl" };
+  it("needs matching passwords of 8+ characters and a token", () => {
+    expect(resetPasswordSchema.safeParse(ok).success).toBe(true);
+    expect(resetPasswordSchema.safeParse({ ...ok, confirm: "other-secret" }).success).toBe(false);
+    expect(resetPasswordSchema.safeParse({ ...ok, password: "short", confirm: "short" }).success).toBe(false);
+    expect(resetPasswordSchema.safeParse({ ...ok, token_hash: "" }).success).toBe(false);
   });
 });

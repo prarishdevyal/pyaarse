@@ -10,7 +10,8 @@ import { placeOrder } from "@/lib/orders";
 import { priceCart, type CartLine } from "@/lib/pricing";
 import { couponDiscount, normalizeCode, totalsWithDiscount } from "@/lib/discounts";
 import { getShippingSettings } from "@/lib/settings";
-import { cartItemsSchema, checkoutSchema, contactSchema, loginSchema, registerSchema } from "@/lib/validation";
+import { cartItemsSchema, checkoutSchema, contactSchema, forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema } from "@/lib/validation";
+import { resetSentMessage, sendPasswordResetLink } from "@/lib/password-reset";
 import { buildContactTelegramMessage, sendTelegram } from "@/lib/notify/telegram";
 import { safeNext } from "@/lib/redirect";
 import { siteUrl } from "@/lib/hosts";
@@ -114,6 +115,36 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
     return { error: error.code === "email_not_confirmed" ? "Please confirm your email first — check your inbox." : "Incorrect email or password." };
   }
   redirect(safeNext(formData.get("next")));
+}
+
+export async function requestPasswordReset(_prev: FormState, formData: FormData): Promise<FormState> {
+  const parsed = forgotPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error.issues) };
+  const ipOk = await limits.resetByIp.hit(await clientIp());
+  if (!ipOk || !await limits.resetByEmail.hit(parsed.data.email)) return { error: TOO_MANY };
+  try {
+    await sendPasswordResetLink(parsed.data.email, { base: siteUrl(), path: "/reset-password" });
+  } catch (e) {
+    console.error("[password reset]", e);
+    return { error: "We couldn't send the email just now. Please try again in a few minutes." };
+  }
+  return { success: resetSentMessage(parsed.data.email) };
+}
+
+export async function resetPassword(_prev: FormState, formData: FormData): Promise<FormState> {
+  const parsed = resetPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const errs = fieldErrors(parsed.error.issues);
+    if (errs.token_hash) return { error: "This link is incomplete. Ask for a new one from the login page." };
+    return { fieldErrors: errs };
+  }
+  if (!await limits.resetByIp.hit(await clientIp())) return { error: TOO_MANY };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.verifyOtp({ token_hash: parsed.data.token_hash, type: "recovery" });
+  if (error) return { error: "This link has expired or was already used. Ask for a new one." };
+  const { error: pwError } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (pwError) return { error: pwError.code === "same_password" ? "That's your current password. Choose a different one." : pwError.message };
+  redirect("/account?reset=1");
 }
 
 export async function logout() {

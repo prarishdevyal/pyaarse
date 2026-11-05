@@ -13,8 +13,8 @@ export function SetPasswordForm({ tokenHash, type }: { tokenHash: string; type: 
       <form action={action} className="card w-full max-w-sm space-y-4 bg-ivory p-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/pyaarse-mark.svg" alt="" className="mx-auto h-16 w-auto" />
-        <h1 className="text-center font-serif text-3xl italic text-brand">Welcome to Pyaarse Admin</h1>
-        <p className="text-center text-sm text-taupe">Choose a password for your admin account.</p>
+        <h1 className="text-center font-serif text-3xl italic text-brand">{type === "recovery" ? "Choose a new password" : "Welcome to Pyaarse Admin"}</h1>
+        <p className="text-center text-sm text-taupe">{type === "recovery" ? "Set a new password for your admin account." : "Choose a password for your admin account."}</p>
         <input type="hidden" name="token_hash" value={tokenHash} />
         <input type="hidden" name="type" value={type} />
         <FormField id="password" label="New password" error={err("password")} hint={`At least ${MIN_ADMIN_PASSWORD_LENGTH} characters.`}>

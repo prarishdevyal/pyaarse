@@ -9,7 +9,7 @@ import { formatINR, formatDate } from "@/lib/format";
 
 export const metadata = { title: "My account" };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ reset?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/account");
 
@@ -29,6 +29,9 @@ export default async function AccountPage() {
         <form action={logout}><button className="btn-secondary">Log out</button></form>
       </div>
 
+      {(await searchParams).reset === "1" && (
+        <p className="mt-6 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900" role="status">Your password has been changed. You&apos;re logged in.</p>
+      )}
       <h2 className="mt-10 font-serif text-3xl">{t("account.orders")}</h2>
       {orders.length === 0 ? (
         <p className="mt-4 text-taupe">{t("account.noOrders")}</p>

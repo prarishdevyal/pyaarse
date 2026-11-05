@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { adminLogin } from "../actions";
 import { loginSchema } from "@/lib/validation";
 import { useValidation } from "@/components/use-validation";
@@ -23,6 +24,7 @@ export default function AdminLoginPage() {
         </FormField>
         {state?.error && <p className="text-sm text-brand" role="alert">{state.error}</p>}
         <button className="btn-primary w-full" disabled={pending}>{pending ? "Signing in…" : "Sign in"}</button>
+        <p className="text-center text-sm"><Link href="/forgot-password" className="text-brand underline">Forgot password?</Link></p>
       </form>
     </div>
   );

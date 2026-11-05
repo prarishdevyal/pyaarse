@@ -26,6 +26,8 @@ export const limits = {
   adminLoginByIp: limiter("admin-login-ip", 10, 15 * MIN),
   adminLoginByEmail: limiter("admin-login-email", 5, 15 * MIN),
   registerByIp: limiter("register-ip", 5, 60 * MIN),
+  resetByIp: limiter("reset-ip", 5, 60 * MIN),
+  resetByEmail: limiter("reset-email", 3, 60 * MIN),
   checkoutByIp: limiter("checkout-ip", 10, 60 * MIN),
   checkoutByEmail: limiter("checkout-email", 5, 60 * MIN),
   contactByIp: limiter("contact-ip", 5, 60 * MIN),
