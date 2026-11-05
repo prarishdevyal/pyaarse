@@ -153,7 +153,7 @@ export async function buildInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
 
   y -= 30;
   ensure(40);
-  text("Thank you for shopping with Pyaarse. Made with love, by hand.", M, { font: serif, size: 12, color: BRAND });
+  text("Thank you for shopping with Pyaarse. Made with love, Prarish Devyal.", M, { font: serif, size: 12, color: BRAND });
   y -= 15;
   text("This is a computer-generated invoice and does not need a signature.", M, { size: 8, color: MUTED });
 
