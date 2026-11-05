@@ -3,6 +3,8 @@ name: Browser tests (live site)
 # Read-only checks: no orders, messages or sign-ups are ever submitted.
 on:
   workflow_call:
+  # Vercel's GitHub integration reports each deployment; test the site once production is live.
+  deployment_status:
   workflow_dispatch:
     inputs:
       base_url:
@@ -17,6 +19,7 @@ permissions:
 
 jobs:
   e2e:
+    if: github.event_name != 'deployment_status' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

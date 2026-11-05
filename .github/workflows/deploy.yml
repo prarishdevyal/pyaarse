@@ -1,4 +1,4 @@
-name: Test and deploy to Vercel
+name: Test (and deploy to Vercel)
 
 on:
   push:
@@ -30,8 +30,11 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  # CLI deploy, only for a repo that sets the variable VERCEL_DEPLOY=true. Repos whose Vercel
+  # project is connected through Vercel's GitHub integration deploy on push and skip this.
   deploy:
     needs: test
+    if: vars.VERCEL_DEPLOY == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

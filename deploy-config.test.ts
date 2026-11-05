@@ -26,11 +26,14 @@ describe("deployment config", () => {
   it("keeps local env files out of git and the Docker image", () => {
     expect(read("./.gitignore")).toMatch(/^\.env\*$/m);
     expect(read("./.dockerignore")).toMatch(/^\.env\*$/m);
+    expect(read("./.vercelignore")).toMatch(/^\.env$/m);
+    expect(read("./.vercelignore")).toMatch(/^\.env\.\*$/m);
   });
 
-  it("deploys only through the tested GitHub Action", () => {
+  it("deploys through Vercel's Git integration, or the CLI job where a repo opts in", () => {
     const workflow = read("./.github/workflows/deploy.yml");
-    expect(JSON.parse(read("./vercel.json")).git).toEqual({ deploymentEnabled: false });
+    expect(JSON.parse(read("./vercel.json")).git).toBeUndefined();
+    expect(workflow).toMatch(/if: vars\.VERCEL_DEPLOY == 'true'/);
     expect(workflow).toMatch(/deploy:\s*\n\s*needs: test/);
     expect(workflow).toMatch(/run: npm test/);
     expect(workflow).not.toMatch(/vercel@latest/);
@@ -40,5 +43,6 @@ describe("deployment config", () => {
   it("runs the read-only browser tests after every deploy", () => {
     expect(read("./.github/workflows/deploy.yml")).toMatch(/e2e:\s*\n\s*needs: deploy\s*\n\s*uses: \.\/\.github\/workflows\/e2e\.yml/);
     expect(read("./playwright.config.ts")).toMatch(/workers: process\.env\.CI \? 1/);
+    expect(read("./.github/workflows/e2e.yml")).toMatch(/deployment_status:/);
   });
 });
