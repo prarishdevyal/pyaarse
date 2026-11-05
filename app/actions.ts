@@ -166,6 +166,7 @@ async function wishlistIds(userId: string): Promise<number[]> {
 export async function toggleWishlist(productId: number): Promise<number[]> {
   const user = await getCurrentUser();
   if (!user || !Number.isInteger(productId) || productId <= 0) return [];
+  if (!await limits.wishlistByUser.hit(user.id)) return wishlistIds(user.id);
   const product = await db.query.products.findFirst({ where: and(eq(schema.products.id, productId), eq(schema.products.isActive, true)) });
   const where = and(eq(schema.wishlistItems.userId, user.id), eq(schema.wishlistItems.productId, productId));
   const deleted = await db.delete(schema.wishlistItems).where(where).returning();
@@ -178,7 +179,8 @@ export async function toggleWishlist(productId: number): Promise<number[]> {
 export async function mergeWishlist(productIds: number[]): Promise<number[]> {
   const user = await getCurrentUser();
   if (!user) return [];
-  const ids = [...new Set(productIds)].filter((n) => Number.isInteger(n) && n > 0);
+  if (!await limits.wishlistByUser.hit(user.id)) return wishlistIds(user.id);
+  const ids = [...new Set(productIds)].filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
   if (ids.length) {
     const existing = await db
       .select({ id: schema.products.id })
@@ -195,6 +197,7 @@ export async function mergeWishlist(productIds: number[]): Promise<number[]> {
 }
 
 export async function fetchProductCards(ids: number[]): Promise<ProductCard[]> {
+  if (!await limits.productCardsByIp.hit(await clientIp())) return [];
   const clean = [...new Set(ids)].filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
   return getProductCards({ ids: clean });
 }

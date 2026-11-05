@@ -33,6 +33,10 @@ export const limits = {
   contactByIp: limiter("contact-ip", 5, 60 * MIN),
   contactByEmail: limiter("contact-email", 3, 60 * MIN),
   quoteByIp: limiter("quote-ip", 120, MIN),
+  wishlistByUser: limiter("wishlist-user", 60, MIN),
+  productCardsByIp: limiter("cards-ip", 60, MIN),
+  /** Emails an admin can trigger by hand (resend invoice, invite admin), to protect the Zoho sending allowance. */
+  adminEmailsByUser: limiter("admin-email-user", 30, 60 * MIN),
 };
 
 /** Deletes expired counters. Run daily by the keep-alive cron. */

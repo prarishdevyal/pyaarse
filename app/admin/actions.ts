@@ -108,9 +108,10 @@ export async function updateOrderStatus(formData: FormData) {
 }
 
 export async function resendInvoice(formData: FormData) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id)) return;
+  if (!await limits.adminEmailsByUser.hit(actor.id)) redirect(invoiceResultUrl(id, { ok: false, error: TOO_MANY }));
   redirect(invoiceResultUrl(id, await sendInvoice(id)));
 }
 
@@ -124,6 +125,7 @@ export async function inviteAdminAction(_prev: FormState, formData: FormData): P
   const actor = await requireAdmin();
   const parsed = inviteAdminSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: { email: parsed.error.issues[0].message } };
+  if (!await limits.adminEmailsByUser.hit(actor.id)) return { error: TOO_MANY };
   try {
     const r = await inviteAdmin(actor, parsed.data.email);
     return r.ok ? { success: r.message } : { error: r.error };
