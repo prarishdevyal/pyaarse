@@ -58,7 +58,7 @@ export default async function HomePage() {
 
       {/* Highlights */}
       <section className="container-page relative z-10 -mt-6">
-        <ul className="grid grid-cols-2 gap-y-6 rounded-[14px] bg-blush/95 px-4 py-6 shadow-soft lg:grid-cols-4 lg:divide-x lg:divide-sand">
+        <ul className="grid grid-cols-2 gap-y-6 rounded-[14px] border border-sand/70 bg-ivory px-4 py-6 shadow-[0_14px_36px_-14px_rgb(94_23_22/0.3)] lg:grid-cols-4 lg:divide-x lg:divide-sand">
           {HIGHLIGHT_ICONS.map((Icon, i) => (
             <li key={i} className="flex items-center gap-3 px-3 lg:justify-center">
               <Icon size={28} className="shrink-0 text-brand" aria-hidden />
@@ -100,12 +100,10 @@ export default async function HomePage() {
       {/* Bestsellers */}
       {bestsellers.length > 0 && (
         <section className="container-page mt-20">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <h2 className="heading-section">{t("home.bestsellers.title")}</h2>
-              <p className="mt-1 text-taupe">{t("home.bestsellers.subtitle")}</p>
-            </div>
-            <Link href="/shop" className="flex shrink-0 items-center gap-1 text-sm text-brand underline-offset-4 hover:underline">
+          <div className="text-center">
+            <h2 className="heading-section">{t("home.bestsellers.title")}</h2>
+            <p className="mt-2 text-taupe">{t("home.bestsellers.subtitle")}</p>
+            <Link href="/shop" className="mt-3 inline-flex items-center gap-1 text-sm text-brand underline-offset-4 hover:underline">
               View all <ArrowRightIcon size={16} aria-hidden />
             </Link>
           </div>

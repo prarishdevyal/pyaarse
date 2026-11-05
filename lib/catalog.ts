@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 
@@ -16,9 +17,10 @@ export type ProductCard = {
   collectionName: string | null;
 };
 
-export async function getCollections() {
-  return db.select().from(collections).orderBy(asc(collections.sortOrder), asc(collections.name));
-}
+/** Shared by the layout and the page within one request. */
+export const getCollections = cache(async () =>
+  db.select().from(collections).orderBy(asc(collections.sortOrder), asc(collections.name)),
+);
 
 export async function getProductCards(opts: { collectionSlug?: string; bestsellers?: boolean; ids?: number[]; q?: string; limit?: number } = {}): Promise<ProductCard[]> {
   const conds = [eq(products.isActive, true)];
