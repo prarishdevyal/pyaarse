@@ -17,7 +17,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "admin:password": "tsx scripts/set-admin-password.mts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:launch": "E2E_LAUNCH=1 E2E_BASE_URL=https://www.pyaarse.net E2E_ADMIN_URL=https://admin.pyaarse.net playwright test e2e/launch.spec.ts --project=desktop --workers=1"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

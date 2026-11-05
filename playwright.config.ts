@@ -1,5 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Private logins for the launch check (e2e/launch.spec.ts). Git and Vercel both ignore .env.* files.
+try {
+  process.loadEnvFile(".env.e2e");
+} catch {}
+
 // Read-only checks against a running site. Defaults to local Docker; CI points it at production.
 export const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 export const ADMIN_URL = process.env.E2E_ADMIN_URL ?? "http://admin.localhost:3000";
