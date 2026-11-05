@@ -66,6 +66,19 @@ const rupees = (label: string) => z.string().trim().regex(/^\d{1,7}$/, `${label}
 export const settingsSchema = z.object({
   shippingFee: rupees("Shipping fee"),
   freeShippingThreshold: rupees("Free-shipping amount"),
+  contactEmail: z.string().trim().toLowerCase().pipe(z.union([z.literal(""), z.email("Please enter a valid email")])).default(""),
+  contactWhatsapp: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[\s-]/g, ""))
+    .pipe(z.union([z.literal(""), z.string().regex(/^(\+91|91|0)?[6-9]\d{9}$/, "Enter a 10-digit Indian mobile number")]))
+    .transform((v) => (v ? `91${v.replace(/\D/g, "").slice(-10)}` : ""))
+    .default(""),
+  contactInstagram: z
+    .string()
+    .transform((v) => v.trim().replace(/^(https?:\/\/)?(www\.)?instagram\.com\//i, "").replace(/^@/, "").replace(/[/?#].*$/, ""))
+    .pipe(z.union([z.literal(""), z.string().regex(/^[A-Za-z0-9._]{1,30}$/, "Use the Instagram username, e.g. pyaarse_net")]))
+    .default(""),
 });
 
 export const collectionFieldsSchema = z.object({

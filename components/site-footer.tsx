@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { storeContact } from "@/lib/store";
+import type { StoreContact } from "@/lib/store";
 import { AtSignIcon, MailIcon, MessageCircleIcon } from "./icons";
 
-export function SiteFooter({ tagline }: { tagline: string }) {
-  const c = storeContact();
+export function SiteFooter({ tagline, contact: c }: { tagline: string; contact: StoreContact }) {
   const whatsapp = c.whatsappLink("Hi Pyaarse!");
   const link = "transition hover:text-ivory";
   return (

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getCollections, getProductCards } from "@/lib/catalog";
 import { getContent } from "@/lib/content";
-import { storeContact } from "@/lib/store";
+import { getStoreContact } from "@/lib/settings";
 import { ProductCard } from "@/components/product-card";
 import { ArrowRightIcon, BoxIcon, GiftIcon, HeartIcon, LeafIcon, PlusIcon, SparkleIcon } from "@/components/icons";
 
@@ -11,12 +11,12 @@ const HIGHLIGHT_ICONS = [LeafIcon, HeartIcon, SparkleIcon, BoxIcon];
 const REVIEW_COLS: Record<number, string> = { 1: "", 2: "md:grid-cols-2", 3: "md:grid-cols-3" };
 
 export default async function HomePage() {
-  const [collections, bestsellers, t] = await Promise.all([
+  const [collections, bestsellers, t, contact] = await Promise.all([
     getCollections(),
     getProductCards({ bestsellers: true, limit: 4 }),
     getContent(),
+    getStoreContact(),
   ]);
-  const contact = storeContact();
   const giftHref = contact.whatsappLink("Hi Pyaarse! I'd like to plan a gift.") ?? "/contact";
   const reviews = [1, 2, 3]
     .map((n) => ({ quote: t(`home.review.${n}.quote`), name: t(`home.review.${n}.name`) }))

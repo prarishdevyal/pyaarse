@@ -11,6 +11,12 @@ describe("storeContact", () => {
     expect(c.instagram).toBe("pyaarse.candles");
     expect(c.email).toBe("query@pyaarse.net");
   });
+  it("prefers what the admin saved, then env, then defaults", () => {
+    const env = { STORE_EMAIL: "env@pyaarse.net", STORE_WHATSAPP: "911111111111" };
+    const c = storeContact(env, { email: "admin@pyaarse.net", whatsapp: "+91 98765 43210", instagram: "@new.handle" });
+    expect(c).toMatchObject({ email: "admin@pyaarse.net", whatsapp: "919876543210", instagram: "new.handle" });
+    expect(storeContact(env, { email: "", whatsapp: "" })).toMatchObject({ email: "env@pyaarse.net", whatsapp: "911111111111" });
+  });
   it("defaults to the shop's Instagram", () => expect(storeContact({}).instagram).toBe("pyaarse_net"));
   it("reads a handle however it's written", () => {
     for (const raw of ["pyaarse_net", "@pyaarse_net", "instagram.com/pyaarse_net", "https://www.instagram.com/pyaarse_net/?hl=en"]) {

@@ -115,3 +115,17 @@ describe("resetPasswordSchema", () => {
     expect(resetPasswordSchema.safeParse({ ...ok, token_hash: "" }).success).toBe(false);
   });
 });
+
+describe("settingsSchema contact details", () => {
+  const base = { shippingFee: "79", freeShippingThreshold: "999" };
+  it("tidies contact details and allows them empty", () => {
+    expect(settingsSchema.parse({ ...base, contactEmail: " Query@Pyaarse.net ", contactWhatsapp: "+91 98765-43210", contactInstagram: "https://instagram.com/pyaarse_net/" }))
+      .toMatchObject({ contactEmail: "query@pyaarse.net", contactWhatsapp: "919876543210", contactInstagram: "pyaarse_net" });
+    expect(settingsSchema.parse(base)).toMatchObject({ contactEmail: "", contactWhatsapp: "", contactInstagram: "" });
+  });
+  it("rejects bad contact details", () => {
+    expect(settingsSchema.safeParse({ ...base, contactEmail: "nope" }).success).toBe(false);
+    expect(settingsSchema.safeParse({ ...base, contactWhatsapp: "12345" }).success).toBe(false);
+    expect(settingsSchema.safeParse({ ...base, contactInstagram: "bad handle!" }).success).toBe(false);
+  });
+});

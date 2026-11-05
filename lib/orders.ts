@@ -4,14 +4,14 @@ import { db, schema } from "./db";
 import { orderNumberFor } from "./format";
 import { expiryCutoff, pendingOrderTtlHours } from "./order-expiry";
 import { priceCart } from "./pricing";
-import { getSettings } from "./settings";
+import { getSettings, getStoreContact } from "./settings";
 import type { CheckoutInput } from "./validation";
 import type { OrderSummary } from "./notify/types";
 import { buildTelegramMessage, sendTelegram } from "./notify/telegram";
 import { buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, orderAlertEmail, sendEmail } from "./notify/email";
 import { buildInvoicePdf, invoiceNumber } from "./invoice";
 import { couponDiscount, normalizeCode, totalsWithDiscount } from "./discounts";
-import { storeContact } from "./store";
+
 import { siteUrl } from "./hosts";
 
 const { orders, orderItems, productVariants, products, coupons } = schema;
@@ -195,7 +195,7 @@ export async function getOrderSummary(orderId: number): Promise<OrderSummary | n
 }
 
 export async function invoicePdfFor(summary: OrderSummary, paid: boolean, invoiceDate = new Date()): Promise<Uint8Array> {
-  const store = storeContact();
+  const store = await getStoreContact();
   return buildInvoicePdf({
     ...summary,
     invoiceDate,

@@ -333,10 +333,11 @@ export async function saveSettings(_prev: FormState, formData: FormData): Promis
   await requireAdmin();
   const parsed = settingsSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { contactEmail, contactWhatsapp, contactInstagram } = parsed.data;
   const shippingFee = Number(parsed.data.shippingFee);
   const freeShippingThreshold = Number(parsed.data.freeShippingThreshold);
   const sendOrderEmails = formData.get("sendOrderEmails") === "on";
-  await storeSettings({ shippingFee, freeShippingThreshold, sendOrderEmails });
+  await storeSettings({ shippingFee, freeShippingThreshold, sendOrderEmails, contactEmail, contactWhatsapp, contactInstagram });
   return { success: "Settings saved." };
 }
 
