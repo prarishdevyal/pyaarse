@@ -35,10 +35,9 @@ export default async function HomePage() {
         <img
           src={heroImage}
           alt=""
-          className="anim-settle absolute inset-y-0 right-0 h-full w-full object-cover md:w-[66%] md:[mask-image:linear-gradient(to_right,transparent,black_35%)]"
+          className="anim-settle block h-72 w-full object-cover object-[60%_45%] [mask-image:linear-gradient(to_bottom,black_70%,transparent)] sm:h-96 md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[66%] md:object-center md:[mask-image:linear-gradient(to_right,transparent,black_35%)]"
         />
-        <div className="absolute inset-0 bg-blush/80 md:hidden" />
-        <div className="container-page relative flex min-h-[460px] flex-col justify-center py-16 md:min-h-[540px]">
+        <div className="container-page relative flex flex-col justify-center pb-16 pt-3 md:mt-0 md:min-h-[540px] md:py-16">
           <p className="anim-rise text-xs uppercase tracking-[0.4em] text-charcoal/80">{t("home.hero.eyebrow")}</p>
           <h1 className="anim-rise heading-xl mt-5 max-w-xl" style={{ "--delay": "120ms" } as React.CSSProperties}>
             {titleFirst}
