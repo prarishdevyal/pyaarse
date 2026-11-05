@@ -37,13 +37,13 @@ jobs:
           echo "$deps" | jq -r '.deployments[] | "\(.state // .readyState)\t\(.target // "preview")\t\((.created/1000)|todate)\t\(.url)\t\(.uid)"' | column -t -s $'\t'
 
           stuck=$(echo "$deps" | jq -r --argjson now "$(date +%s)" '.deployments[] | select((.state // .readyState) as $s | ["QUEUED","BUILDING","INITIALIZING"] | index($s)) | select(($now - .created/1000) > 300) | .uid')
-          unfinished=$(echo "$deps" | jq -r '.deployments[] | select((.state // .readyState) as $s | ["QUEUED","BUILDING","INITIALIZING","ERROR"] | index($s)) | .uid' | head -5)
+          unfinished=$(echo "$deps" | jq -r '.deployments[] | select((.state // .readyState) as $s | ["QUEUED","BUILDING","INITIALIZING","ERROR","BLOCKED"] | index($s)) | .uid' | head -5)
 
           if [ "${{ inputs.action }}" = "status" ]; then
             for id in $unfinished; do
               echo "::group::Build log of $id"
               api GET "/v3/deployments/$id/events?limit=200" | jq -r '.[]? | (.payload.text // .text // empty)' | tail -80
-              api GET "/v13/deployments/$id" | jq -r '"state=\(.readyState) substate=\(.readySubstate // "") error=\(.errorCode // "") \(.errorMessage // "")"'
+              api GET "/v13/deployments/$id" | jq -r '"state=\(.readyState) substate=\(.readySubstate // "") error=\(.errorCode // "") \(.errorMessage // "") creator=\(.creator.username // "") git_author=\(.meta.githubCommitAuthorLogin // .gitSource.ref // "")"'
               echo "::endgroup::"
             done
             echo "Stuck for over 5 minutes: ${stuck:-none}"
