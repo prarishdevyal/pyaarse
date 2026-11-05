@@ -55,8 +55,8 @@ export const DEFAULT_TERMS = `These terms apply when you browse pyaarse.net or b
 ## Orders
 
 - An order is confirmed once we receive your payment. Until then it shows as "Pending payment".
-- Unpaid orders are cancelled automatically after 48 hours, and the items go back on sale.
-- You can order up to 10 of each item per order. For larger quantities, contact us about a bulk order.
+- Please complete your payment within 24 hours of placing the order. Unpaid orders are cancelled automatically after 24 hours, and the items go back on sale.
+- You can order up to 5 of each item per order. For larger quantities, contact us about a bulk order.
 - We may cancel an order if an item turns out to be unavailable or a price was shown incorrectly. If you have already paid, we will refund you in full.
 
 ## Prices and shipping

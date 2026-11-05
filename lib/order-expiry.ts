@@ -1,4 +1,4 @@
-export const DEFAULT_PENDING_ORDER_TTL_HOURS = 48;
+export const DEFAULT_PENDING_ORDER_TTL_HOURS = 24;
 
 /** Hours an unpaid order may hold stock. Invalid or too-small values fall back to the default. */
 export function pendingOrderTtlHours(raw: string | undefined): number {

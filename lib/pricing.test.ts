@@ -19,14 +19,15 @@ describe("priceCart", () => {
   });
 
   it("merges duplicate lines before checking stock", () => {
-    const r = priceCart([{ variantId: 1, quantity: 3 }, { variantId: 1, quantity: 3 }], [v()], s);
-    expect(r).toEqual({ ok: false, error: "Only 5 left of Rose Candle (200g)." });
+    const r = priceCart([{ variantId: 1, quantity: 2 }, { variantId: 1, quantity: 2 }], [v({ stock: 3 })], s);
+    expect(r).toEqual({ ok: false, error: "Only 3 left of Rose Candle (200g)." });
   });
 
   it("caps the merged quantity per variant even with plenty of stock", () => {
-    const lines = [{ variantId: 1, quantity: 10 }, { variantId: 1, quantity: 10 }, { variantId: 1, quantity: 10 }];
-    expect(priceCart(lines, [v({ stock: 500 })], s)).toEqual({ ok: false, error: "You can order at most 10 of each item." });
-    expect(priceCart([{ variantId: 1, quantity: 10 }], [v({ stock: 500 })], s).ok).toBe(true);
+    const lines = [{ variantId: 1, quantity: 3 }, { variantId: 1, quantity: 3 }];
+    expect(priceCart(lines, [v({ stock: 500 })], s)).toEqual({ ok: false, error: "You can order at most 5 of each item." });
+    expect(priceCart([{ variantId: 1, quantity: 5 }], [v({ stock: 500 })], s).ok).toBe(true);
+    expect(priceCart([{ variantId: 1, quantity: 6 }], [v({ stock: 500 })], s).ok).toBe(false);
   });
 
   it("rejects out of stock", () => {

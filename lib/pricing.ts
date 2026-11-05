@@ -1,5 +1,5 @@
 /** Max units of one variant per order (applied after duplicate lines are merged). */
-export const MAX_QTY_PER_VARIANT = 10;
+export const MAX_QTY_PER_VARIANT = 5;
 export const MAX_CART_LINES = 30;
 
 export type ShippingSettings = { shippingFee: number; freeShippingThreshold: number };

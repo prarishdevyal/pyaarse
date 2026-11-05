@@ -113,7 +113,7 @@ export const CONTENT_GROUPS: ContentGroup[] = [
       line("home.faq.1.q", "Question 1", "How do I pay?"),
       text("home.faq.1.a", "Answer 1", "After you place your order, we send a UPI QR code to your WhatsApp number. Scan it with any UPI app to pay."),
       line("home.faq.2.q", "Question 2", "What if I don't pay straight away?"),
-      text("home.faq.2.a", "Answer 2", "We hold your candles for 48 hours. Unpaid orders are cancelled after that so the stock is free for others."),
+      text("home.faq.2.a", "Answer 2", "We hold your candles for 24 hours, so please complete your payment within that time. Unpaid orders are cancelled after that so the stock is free for others."),
       line("home.faq.3.q", "Question 3", "How do I care for my candle?"),
       text("home.faq.3.a", "Answer 3", "On the first burn, let the wax melt to the edges of the jar. Trim the wick to about 5 mm before each use, and never leave a burning candle unattended."),
       line("home.faq.4.q", "Question 4", "Do you make custom or bulk orders?"),
