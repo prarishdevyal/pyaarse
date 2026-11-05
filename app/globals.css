@@ -140,6 +140,8 @@
 }
 
 @layer utilities {
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
   .anim-rise { animation: rise 0.8s var(--ease-settle) both; animation-delay: var(--delay, 0ms); }
   .anim-settle { animation: settle 1.4s var(--ease-settle) both; }
   .anim-pop { animation: pop 0.35s var(--ease-pop); }

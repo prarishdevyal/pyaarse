@@ -5,6 +5,8 @@ export {
   ArrowRight as ArrowRightIcon,
   AtSign as AtSignIcon,
   ChevronDown as ChevronDownIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
   Flame as FlameIcon,
   Gift as GiftIcon,
   Leaf as LeafIcon,
