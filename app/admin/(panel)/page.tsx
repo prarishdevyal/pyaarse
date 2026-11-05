@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { releaseExpiredOrders } from "@/lib/orders";
 import { startOfIndianDay } from "@/lib/format";
 import { requireAdmin } from "@/lib/auth";
 import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
@@ -9,6 +10,8 @@ const { orders, products, productVariants } = schema;
 
 export default async function AdminDashboard() {
   await requireAdmin();
+  // Unpaid orders past their time are cancelled before counting, so the numbers are current.
+  await releaseExpiredOrders();
   const startOfDay = startOfIndianDay();
 
   const [[pending], [today], recent, lowStock] = await Promise.all([

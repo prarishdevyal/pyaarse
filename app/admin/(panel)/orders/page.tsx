@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { releaseExpiredOrders } from "@/lib/orders";
 import { requireAdmin } from "@/lib/auth";
 import { desc, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
@@ -11,6 +12,7 @@ export const metadata = { title: "Orders" };
 
 export default async function AdminOrdersPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   await requireAdmin();
+  await releaseExpiredOrders();
   const { status } = await searchParams;
   const filter = isOrderStatus(status) ? status : undefined;
   const rows = await db
