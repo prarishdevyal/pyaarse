@@ -27,7 +27,6 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
   const [state, action, pending] = useActionState(saveProduct, undefined);
   const [images, setImages] = useState<string[]>(initial?.images ?? []);
   const [variants, setVariants] = useState<Variant[]>(initial?.variants.length ? initial.variants : [{ name: "Standard", price: 1, salePrice: null, stock: 0 }]);
-  const [previews, setPreviews] = useState<string[]>([]);
   const [upload, setUpload] = useState<ImageInputState>({ busy: false, tooLarge: false });
   const v = useValidation(productFieldsSchema.shape);
   const [checkedVariants, setCheckedVariants] = useState(false);
@@ -120,7 +119,7 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
 
       <section className="card space-y-3 bg-white p-5">
         <h2 className="font-serif text-2xl">Images</h2>
-        <p className="text-xs text-taupe">The first image is the main one. JPG, PNG or WebP, up to 5MB each.</p>
+        <p className="text-xs text-taupe">Add as many photos as you like; pick several at once or one at a time. The first is the main photo (use “Main” to change it). JPG, PNG or WebP.</p>
         <div className="flex flex-wrap gap-3">
           {images.map((src, i) => (
             <div key={src} className="relative">
@@ -138,16 +137,11 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
               </div>
             </div>
           ))}
-          {previews.map((src) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={src} src={src} alt="" className="h-24 w-24 rounded-lg object-cover opacity-70 ring-2 ring-brand/40" />
-          ))}
         </div>
         <ImageFileInput
           name="newImages"
           multiple
           onState={setUpload}
-          onFiles={(files) => setPreviews(files.map((f) => URL.createObjectURL(f)))}
         />
       </section>
 
