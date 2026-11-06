@@ -5,18 +5,19 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "./cart-provider";
 import { useWishlist } from "./wishlist-provider";
-import { BagIcon, ChevronDownIcon, CloseIcon, HeartIcon, MenuIcon, SearchIcon, TruckIcon, UserIcon } from "./icons";
+import { BagIcon, CloseIcon, HeartIcon, MenuIcon, SearchIcon, TruckIcon, UserIcon } from "./icons";
 
-type Props = { loggedIn: boolean; announcement: string; collections: { name: string; slug: string }[] };
+type Props = { loggedIn: boolean; announcement: string };
 
 const NAV = [
   { href: "/", label: "Home" },
   { href: "/shop", label: "Shop" },
+  { href: "/track", label: "Track order" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ];
 
-export function SiteHeader({ loggedIn, announcement, collections }: Props) {
+export function SiteHeader({ loggedIn, announcement }: Props) {
   const pathname = usePathname();
   const { count, ready } = useCart();
   const { ids } = useWishlist();
@@ -45,24 +46,7 @@ export function SiteHeader({ loggedIn, announcement, collections }: Props) {
           </Link>
 
           <nav className="hidden items-center gap-10 md:flex">
-            {NAV.slice(0, 2).map((n) => (
-              <Link key={n.href} href={n.href} className={linkCls(n.href)}>{n.label}</Link>
-            ))}
-            <div className="group relative">
-              <button className="flex items-center gap-1 py-2 text-[15px] hover:text-brand">
-                Collections <ChevronDownIcon size={16} aria-hidden />
-              </button>
-              <div className="invisible absolute left-1/2 top-full w-56 -translate-x-1/2 pt-2 opacity-0 transition duration-200 ease-[var(--ease-settle)] group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
-                <div className="card origin-top scale-95 bg-ivory p-2 transition duration-200 ease-[var(--ease-settle)] group-focus-within:scale-100 group-hover:scale-100">
-                  {collections.map((c) => (
-                    <Link key={c.slug} href={`/shop?collection=${c.slug}`} className="block rounded-lg px-3 py-2 text-sm hover:bg-blush">
-                      {c.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
-            {NAV.slice(2).map((n) => (
+            {NAV.map((n) => (
               <Link key={n.href} href={n.href} className={linkCls(n.href)}>{n.label}</Link>
             ))}
           </nav>
@@ -85,10 +69,6 @@ export function SiteHeader({ loggedIn, announcement, collections }: Props) {
           <nav className="anim-drop container-page flex flex-col gap-1 border-t border-sand/50 pb-4 pt-2 md:hidden" onClick={() => setOpen(false)}>
             {NAV.map((n) => (
               <Link key={n.href} href={n.href} className="rounded-lg px-2 py-2 hover:bg-blush">{n.label}</Link>
-            ))}
-            <p className="mt-2 px-2 text-xs uppercase tracking-widest text-taupe">Collections</p>
-            {collections.map((c) => (
-              <Link key={c.slug} href={`/shop?collection=${c.slug}`} className="rounded-lg px-2 py-2 hover:bg-blush">{c.name}</Link>
             ))}
           </nav>
         )}
