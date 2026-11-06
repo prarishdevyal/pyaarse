@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { StoreContact } from "@/lib/store";
-import { AtSignIcon, MailIcon, MessageCircleIcon } from "./icons";
+import { InstagramIcon, MailIcon, MessageCircleIcon } from "./icons";
 
 export function SiteFooter({ tagline, contact: c }: { tagline: string; contact: StoreContact }) {
   const whatsapp = c.whatsappLink("Hi Pyaarse!");
@@ -38,7 +38,7 @@ export function SiteFooter({ tagline, contact: c }: { tagline: string; contact: 
               <li><a href={whatsapp} target="_blank" rel="noreferrer" className={`flex items-center gap-2 ${link}`}><MessageCircleIcon size={16} aria-hidden /> WhatsApp</a></li>
             )}
             <li><a href={`mailto:${c.email}`} className={`flex items-center gap-2 ${link}`}><MailIcon size={16} aria-hidden /> {c.email}</a></li>
-            <li><a href={`https://instagram.com/${c.instagram}`} target="_blank" rel="noreferrer" className={`flex items-center gap-2 ${link}`}><AtSignIcon size={16} aria-hidden /> @{c.instagram}</a></li>
+            <li><a href={`https://instagram.com/${c.instagram}`} target="_blank" rel="noreferrer" className={`flex items-center gap-2 ${link}`}><InstagramIcon size={16} aria-hidden /> @{c.instagram}</a></li>
           </ul>
         </div>
       </div>
