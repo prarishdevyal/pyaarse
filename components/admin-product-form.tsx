@@ -10,8 +10,18 @@ import { FormField, invalidProps } from "./form-field";
 import { TrashIcon } from "./icons";
 import { ImageFileInput, type ImageInputState } from "./image-file-input";
 
-/** price = regular price; salePrice = optional lower price customers pay. */
-type Variant = { id?: number; name: string; price: number; salePrice: number | null; stock: number };
+/** price = regular price; salePrice = optional lower price. Weight and box size are admin-only (for Delhivery). */
+type Variant = {
+  id?: number;
+  name: string;
+  price: number;
+  salePrice: number | null;
+  stock: number;
+  weightGrams?: number | null;
+  lengthCm?: number | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
+};
 type Initial = {
   id?: number;
   name: string;
@@ -80,7 +90,7 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
             + Add variant
           </button>
         </div>
-        <p className="text-xs text-taupe">E.g. “100g”, “200g · Rose”. Each variant has its own price (₹) and stock. To put it on sale, add a sale price: customers see the regular price crossed out.</p>
+        <p className="text-xs text-taupe">E.g. “100g”, “200g · Rose”. Each variant has its own price (₹) and stock, plus an optional packed weight and box size for shipping that only admins see. To put it on sale, add a sale price: customers see the regular price crossed out.</p>
         <div className="hidden grid-cols-[1fr_110px_110px_90px_40px] gap-3 text-xs text-taupe sm:grid">
           <span>Name</span><span>Price (₹)</span><span>Sale price (₹)</span><span>Stock</span><span />
         </div>
@@ -112,6 +122,18 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
                 <TrashIcon width={18} height={18} />
               </button>
             </div>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-taupe">
+            <span className="w-full sm:w-auto">Shipping (admin only):</span>
+            <input className="input w-24 py-1.5 text-sm" type="number" min={1} step={1} inputMode="numeric" placeholder="Weight" aria-label="Packed weight in grams" value={v.weightGrams ?? ""} onChange={(e) => updateVariant(i, { weightGrams: e.target.value === "" ? null : Math.trunc(Number(e.target.value)) })} />
+            <span>g</span>
+            {(["lengthCm", "widthCm", "heightCm"] as const).map((k, j) => (
+              <span key={k} className="flex items-center gap-2">
+                {j > 0 && <span>×</span>}
+                <input className="input w-20 py-1.5 text-sm" type="number" min={0.1} step={0.1} inputMode="decimal" placeholder={["L", "W", "H"][j]} aria-label={`Box ${["length", "width", "height"][j]} in cm`} value={v[k] ?? ""} onChange={(e) => updateVariant(i, { [k]: e.target.value === "" ? null : Math.round(Number(e.target.value) * 10) / 10 })} />
+              </span>
+            ))}
+            <span>cm</span>
           </div>
           {problems[i] && <p className="mt-1 text-xs text-brand" role="alert">{problems[i]}</p>}
           </div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ORDER_STATUSES } from "@/lib/db/schema";
 import { formatINR, STATUS_LABELS, toWhatsAppNumber, formatDateTime } from "@/lib/format";
@@ -12,6 +12,7 @@ import { invoiceNumber } from "@/lib/invoice";
 import { invoiceWhatsAppText } from "@/lib/invoice-message";
 import { resendInvoice, saveTrackingAction, updateOrderStatus } from "../../../actions";
 import { delhiveryTrackingUrl } from "@/lib/tracking";
+import { describePackage, formatWeight, parcelWeight, type PackageInfo } from "@/lib/package";
 
 export default async function AdminOrderPage({
   params,
@@ -26,6 +27,19 @@ export default async function AdminOrderPage({
   const order = await db.query.orders.findFirst({ where: eq(schema.orders.id, id) });
   if (!order) notFound();
   const items = await db.select().from(schema.orderItems).where(eq(schema.orderItems.orderId, id));
+  // Packed weight and box size come from the product option as it is now (admin-only details).
+  const variantIds = items.flatMap((i) => (i.variantId ? [i.variantId] : []));
+  const packages = new Map<number, PackageInfo>(
+    (variantIds.length
+      ? await db
+          .select({ id: schema.productVariants.id, weightGrams: schema.productVariants.weightGrams, lengthCm: schema.productVariants.lengthCm, widthCm: schema.productVariants.widthCm, heightCm: schema.productVariants.heightCm })
+          .from(schema.productVariants)
+          .where(inArray(schema.productVariants.id, variantIds))
+      : []
+    ).map(({ id: vid, ...pkg }) => [vid, pkg]),
+  );
+  const pkgOf = (variantId: number | null) => (variantId ? packages.get(variantId) ?? null : null);
+  const parcel = parcelWeight(items.map((i) => ({ quantity: i.quantity, pkg: pkgOf(i.variantId) })));
   const { invoice, reason, shipping } = await searchParams;
   const paid = order.status === "paid" || order.status === "shipped" || order.status === "delivered";
   const invoiceFile = `${invoiceNumber(order.orderNumber)}.pdf`;
@@ -66,8 +80,11 @@ export default async function AdminOrderPage({
             <h2 className="mb-3 font-serif text-2xl">Items</h2>
             <ul className="divide-y divide-sand/40 text-sm">
               {items.map((i) => (
-                <li key={i.id} className="flex justify-between py-2">
-                  <span>{i.productName} <span className="text-taupe">({i.variantName}) × {i.quantity} @ {formatINR(i.unitPrice)}</span></span>
+                <li key={i.id} className="flex justify-between gap-4 py-2">
+                  <span>
+                    {i.productName} <span className="text-taupe">({i.variantName}) × {i.quantity} @ {formatINR(i.unitPrice)}</span>
+                    <span className="block text-xs text-taupe">📦 {describePackage(pkgOf(i.variantId) ?? { weightGrams: null, lengthCm: null, widthCm: null, heightCm: null }) ?? "No weight or box size saved for this product"}</span>
+                  </span>
                   <span>{formatINR(i.unitPrice * i.quantity)}</span>
                 </li>
               ))}
@@ -129,6 +146,11 @@ export default async function AdminOrderPage({
           {order.status !== "cancelled" && (
             <div className="card space-y-3 bg-white p-5">
               <h2 className="font-serif text-xl">Shipping (Delhivery)</h2>
+              <p className="text-sm">
+                Parcel weight: <strong>{parcel.grams ? formatWeight(parcel.grams) : "unknown"}</strong>
+                {parcel.missing > 0 && <span className="block text-xs text-amber-800">{parcel.missing === items.length ? "No item has a weight saved." : `${parcel.missing} item${parcel.missing > 1 ? "s have" : " has"} no weight saved, so add those.`} Set weights in Products.</span>}
+                {parcel.missing === 0 && <span className="block text-xs text-taupe">Items only; add the outer box and packing if you use one.</span>}
+              </p>
               {order.trackingNumber && (
                 <div className="rounded-lg bg-blush p-3 text-sm">
                   <p>AWB <strong className="select-all">{order.trackingNumber}</strong></p>

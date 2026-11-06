@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { packageProblem, type PackageInfo } from "./package";
 import { MAX_CART_LINES, MAX_QTY_PER_VARIANT } from "./pricing";
 import { isIndianState } from "./india";
 import { MIN_ADMIN_PASSWORD_LENGTH } from "./admin-bootstrap";
@@ -93,13 +94,19 @@ export const productFieldsSchema = z.object({
 });
 
 /** Problems with the variant rows, keyed by row index (empty = all fine). */
-export function variantProblems(variants: { name: string; price: number; salePrice?: number | null; stock: number }[]): Record<number, string> {
+export function variantProblems(
+  variants: ({ name: string; price: number; salePrice?: number | null; stock: number } & Partial<PackageInfo>)[],
+): Record<number, string> {
   const out: Record<number, string> = {};
   variants.forEach((v, i) => {
     if (!v.name.trim()) out[i] = "Give this variant a name, e.g. 200g.";
     else if (!Number.isInteger(v.price) || v.price < 1) out[i] = "Price must be at least ₹1.";
     else if (v.salePrice != null && (!Number.isInteger(v.salePrice) || v.salePrice < 1 || v.salePrice >= v.price)) out[i] = "Sale price must be lower than the price.";
     else if (!Number.isInteger(v.stock) || v.stock < 0) out[i] = "Stock can't be negative.";
+    else {
+      const pkg = packageProblem({ weightGrams: v.weightGrams ?? null, lengthCm: v.lengthCm ?? null, widthCm: v.widthCm ?? null, heightCm: v.heightCm ?? null });
+      if (pkg) out[i] = pkg;
+    }
   });
   const names = variants.map((v) => v.name.trim().toLowerCase());
   names.forEach((n, i) => {

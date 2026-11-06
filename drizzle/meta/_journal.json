@@ -43,6 +43,13 @@
       "when": 1793958776875,
       "tag": "0005_order_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793960724199,
+      "tag": "0006_package_details",
+      "breakpoints": true
     }
   ]
 }

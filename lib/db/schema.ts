@@ -1,14 +1,4 @@
-import {
-  boolean,
-  integer,
-  jsonb,
-  pgTable,
-  primaryKey,
-  uuid,
-  serial,
-  text,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, primaryKey, uuid, serial, text, timestamp, numeric } from "drizzle-orm/pg-core";
 
 export const collections = pgTable("collections", {
   id: serial("id").primaryKey(),
@@ -42,6 +32,11 @@ export const productVariants = pgTable("product_variants", {
   /** Regular price when the variant is on sale (shown crossed out); null when not on sale. */
   compareAtPrice: integer("compare_at_price"),
   stock: integer("stock").notNull().default(0),
+  /** Admin-only shipping details for Delhivery: packed weight and box size. Null = not filled in. */
+  weightGrams: integer("weight_grams"),
+  lengthCm: numeric("length_cm", { precision: 6, scale: 1, mode: "number" }),
+  widthCm: numeric("width_cm", { precision: 6, scale: 1, mode: "number" }),
+  heightCm: numeric("height_cm", { precision: 6, scale: 1, mode: "number" }),
   sortOrder: integer("sort_order").notNull().default(0),
 }).enableRLS();
 

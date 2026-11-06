@@ -198,6 +198,10 @@ const variantSchema = z.object({
   price: z.number().int().min(0, "Price can't be negative"),
   salePrice: z.number().int().min(1).nullable().optional().default(null),
   stock: z.number().int().min(0, "Stock can't be negative"),
+  weightGrams: z.number().int().nullable().optional().default(null),
+  lengthCm: z.number().nullable().optional().default(null),
+  widthCm: z.number().nullable().optional().default(null),
+  heightCm: z.number().nullable().optional().default(null),
 });
 
 const productSchema = z.object({
@@ -272,7 +276,16 @@ export async function saveProduct(_prev: FormState, formData: FormData): Promise
       .delete(productVariants)
       .where(and(eq(productVariants.productId, productId!), keepIds.length ? notInArray(productVariants.id, keepIds) : undefined));
     for (const [sortOrder, v] of data.variants.entries()) {
-      const row = { name: v.name, ...toStoredPrices(v.price, v.salePrice), stock: v.stock, sortOrder };
+      const row = {
+        name: v.name,
+        ...toStoredPrices(v.price, v.salePrice),
+        stock: v.stock,
+        sortOrder,
+        weightGrams: v.weightGrams,
+        lengthCm: v.lengthCm,
+        widthCm: v.widthCm,
+        heightCm: v.heightCm,
+      };
       if (v.id) {
         await tx.update(productVariants).set(row).where(and(eq(productVariants.id, v.id), eq(productVariants.productId, productId!)));
       } else {
