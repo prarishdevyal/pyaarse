@@ -6,12 +6,12 @@ export function SiteFooter({ tagline, contact: c }: { tagline: string; contact: 
   const whatsapp = c.whatsappLink("Hi Pyaarse!");
   const link = "transition hover:text-ivory";
   return (
-    <footer className="mt-24 bg-burgundy text-ivory/80">
-      <div className="container-page grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
-        <div>
+    <footer className="mt-16 bg-burgundy text-ivory/80 sm:mt-24">
+      <div className="container-page grid grid-cols-2 gap-x-6 gap-y-7 py-9 sm:gap-10 sm:py-14 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+        <div className="col-span-2 lg:col-span-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/pyaarse-logo-horizontal-ivory.svg" alt="Pyaarse" className="h-12 w-auto" />
-          <p className="mt-4 max-w-xs text-sm text-ivory/70">{tagline}</p>
+          <img src="/brand/pyaarse-logo-horizontal-ivory.svg" alt="Pyaarse" className="h-10 w-auto sm:h-12" />
+          <p className="mt-3 max-w-xs text-sm text-ivory/70 sm:mt-4">{tagline}</p>
         </div>
         <nav aria-label="Shop" className="text-sm">
           <p className="mb-3 font-medium text-ivory">Shop</p>
@@ -31,9 +31,9 @@ export function SiteFooter({ tagline, contact: c }: { tagline: string; contact: 
             <li><Link href="/privacy" className={link}>Privacy policy</Link></li>
           </ul>
         </nav>
-        <div className="text-sm">
+        <div className="col-span-2 text-sm sm:col-span-1">
           <p className="mb-3 font-medium text-ivory">Say hello</p>
-          <ul className="space-y-2">
+          <ul className="flex flex-wrap gap-x-6 gap-y-2 sm:block sm:space-y-2">
             {whatsapp && (
               <li><a href={whatsapp} target="_blank" rel="noreferrer" className={`flex items-center gap-2 ${link}`}><MessageCircleIcon size={16} aria-hidden /> WhatsApp</a></li>
             )}
