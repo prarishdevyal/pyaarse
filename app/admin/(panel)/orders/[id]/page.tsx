@@ -11,7 +11,8 @@ import { ShareInvoiceButton } from "@/components/share-invoice-button";
 import { invoiceNumber } from "@/lib/invoice";
 import { invoiceWhatsAppText } from "@/lib/invoice-message";
 import { resendInvoice, saveTrackingAction, updateOrderStatus } from "../../../actions";
-import { delhiveryTrackingUrl } from "@/lib/tracking";
+import { canShip, delhiveryTrackingUrl } from "@/lib/tracking";
+import { regularPriceFor, saleSavings } from "@/lib/original-price";
 import { describePackage, formatWeight, parcelWeight, type PackageInfo } from "@/lib/package";
 
 export default async function AdminOrderPage({
@@ -38,6 +39,14 @@ export default async function AdminOrderPage({
       : []
     ).map(({ id: vid, ...pkg }) => [vid, pkg]),
   );
+  const currentPrices = new Map(
+    (variantIds.length
+      ? await db.select({ id: schema.productVariants.id, price: schema.productVariants.price, compareAtPrice: schema.productVariants.compareAtPrice }).from(schema.productVariants).where(inArray(schema.productVariants.id, variantIds))
+      : []
+    ).map((v) => [v.id, v]),
+  );
+  const regularOf = (i: (typeof items)[number]) => regularPriceFor(i, i.variantId ? currentPrices.get(i.variantId) : null);
+  const savings = saleSavings(items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice, regular: regularOf(i) })));
   const pkgOf = (variantId: number | null) => (variantId ? packages.get(variantId) ?? null : null);
   const parcel = parcelWeight(items.map((i) => ({ quantity: i.quantity, pkg: pkgOf(i.variantId) })));
   const { invoice, reason, shipping } = await searchParams;
@@ -82,7 +91,16 @@ export default async function AdminOrderPage({
               {items.map((i) => (
                 <li key={i.id} className="flex justify-between gap-4 py-2">
                   <span>
-                    {i.productName} <span className="text-taupe">({i.variantName}) × {i.quantity} @ {formatINR(i.unitPrice)}</span>
+                    {i.productName}{" "}
+                    <span className="text-taupe">
+                      ({i.variantName}) × {i.quantity} @ {formatINR(i.unitPrice)}
+                      {regularOf(i) != null && (
+                        <>
+                          {" "}<s>{formatINR(regularOf(i)!)}</s>{" "}
+                          <span className="rounded bg-blush px-1 text-[11px] text-brand">sale</span>
+                        </>
+                      )}
+                    </span>
                     <span className="block text-xs text-taupe">📦 {describePackage(pkgOf(i.variantId) ?? { weightGrams: null, lengthCm: null, widthCm: null, heightCm: null }) ?? "No weight or box size saved for this product"}</span>
                   </span>
                   <span>{formatINR(i.unitPrice * i.quantity)}</span>
@@ -90,6 +108,12 @@ export default async function AdminOrderPage({
               ))}
             </ul>
             <dl className="mt-3 space-y-1 border-t border-sand/60 pt-3 text-sm">
+              {savings > 0 && (
+                <div className="flex justify-between text-taupe"><dt>At regular prices</dt><dd><s>{formatINR(order.subtotal + savings)}</s></dd></div>
+              )}
+              {savings > 0 && (
+                <div className="flex justify-between text-taupe"><dt>Sale savings</dt><dd>−{formatINR(savings)}</dd></div>
+              )}
               <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatINR(order.subtotal)}</dd></div>
               {order.discount > 0 && (
                 <div className="flex justify-between text-[#1f8f4e]"><dt>Discount{order.couponCode ? ` (${order.couponCode})` : ""}</dt><dd>−{formatINR(order.discount)}</dd></div>
@@ -168,16 +192,22 @@ export default async function AdminOrderPage({
                   </div>
                 </div>
               )}
-              <form action={saveTrackingAction} className="space-y-3">
-                <input type="hidden" name="id" value={order.id} />
-                <label className="label" htmlFor="awb">Delhivery AWB (waybill) number</label>
-                <input id="awb" name="awb" required inputMode="text" autoComplete="off" defaultValue={order.trackingNumber ?? ""} placeholder="e.g. 1234567890123" className="input" />
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="notify" defaultChecked={!order.trackingNumber} className="h-4 w-4 accent-brand" /> Email the customer the tracking link
-                </label>
-                <button className="btn-primary w-full">{order.trackingNumber ? "Update tracking" : "Save & mark shipped"}</button>
-                {!order.trackingNumber && <p className="text-xs text-taupe">Saving marks the order Shipped.</p>}
-              </form>
+              {canShip(order.status) ? (
+                <form action={saveTrackingAction} className="space-y-3">
+                  <input type="hidden" name="id" value={order.id} />
+                  <label className="label" htmlFor="awb">Delhivery AWB (waybill) number</label>
+                  <input id="awb" name="awb" required inputMode="text" autoComplete="off" defaultValue={order.trackingNumber ?? ""} placeholder="e.g. 1234567890123" className="input" />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="notify" defaultChecked={!order.trackingNumber} className="h-4 w-4 accent-brand" /> Email the customer the tracking link
+                  </label>
+                  <button className="btn-primary w-full">{order.trackingNumber ? "Update tracking" : "Save & mark shipped"}</button>
+                  {!order.trackingNumber && <p className="text-xs text-taupe">Saving marks the order Shipped.</p>}
+                </form>
+              ) : (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  Mark the order <strong>Paid</strong> first (under Update status). The tracking number box appears once it&apos;s paid.
+                </p>
+              )}
             </div>
           )}
           <div className="card bg-white p-5">

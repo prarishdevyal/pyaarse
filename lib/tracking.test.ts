@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contactMatches, delhiveryTrackingUrl, isValidAwb, normalizeAwb, trackSteps } from "./tracking";
+import { canShip, contactMatches, delhiveryTrackingUrl, isValidAwb, normalizeAwb, trackSteps } from "./tracking";
 
 describe("Delhivery waybills", () => {
   it("normalises and validates", () => {
@@ -36,5 +36,15 @@ describe("contactMatches", () => {
     expect(contactMatches(o, "9876500000")).toBe(false);
     expect(contactMatches(o, "43210")).toBe(false);
     expect(contactMatches(o, "")).toBe(false);
+  });
+});
+
+describe("canShip", () => {
+  it("allows tracking only once paid", () => {
+    expect(canShip("pending_payment")).toBe(false);
+    expect(canShip("cancelled")).toBe(false);
+    expect(canShip("paid")).toBe(true);
+    expect(canShip("shipped")).toBe(true);
+    expect(canShip("delivered")).toBe(true);
   });
 });

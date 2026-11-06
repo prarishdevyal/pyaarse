@@ -27,3 +27,6 @@ export function contactMatches(order: { email: string; phone: string }, contact:
   const d = digits(c);
   return d.length === 10 && d === digits(order.phone);
 }
+
+/** Only paid orders can be shipped (or have their tracking corrected once shipped/delivered). */
+export const canShip = (status: OrderStatus) => status === "paid" || status === "shipped" || status === "delivered";

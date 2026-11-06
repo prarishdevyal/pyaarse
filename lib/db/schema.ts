@@ -79,6 +79,8 @@ export const orderItems = pgTable("order_items", {
   productName: text("product_name").notNull(),
   variantName: text("variant_name").notNull(),
   unitPrice: integer("unit_price").notNull(),
+  /** Regular price when the item was bought on sale (shown crossed out to the admin); null if not on sale. */
+  regularPrice: integer("regular_price"),
   quantity: integer("quantity").notNull(),
 }).enableRLS();
 

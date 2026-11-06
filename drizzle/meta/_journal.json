@@ -50,6 +50,13 @@
       "when": 1793960724199,
       "tag": "0006_package_details",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793963387592,
+      "tag": "0007_original_price",
+      "breakpoints": true
     }
   ]
 }

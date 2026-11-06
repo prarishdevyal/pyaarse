@@ -9,7 +9,7 @@ import type { CheckoutInput } from "./validation";
 import type { OrderSummary } from "./notify/types";
 import { buildTelegramMessage, sendTelegram } from "./notify/telegram";
 import { buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, buildShippedEmail, orderAlertEmail, sendEmail } from "./notify/email";
-import { contactMatches, delhiveryTrackingUrl, trackSteps } from "./tracking";
+import { canShip, contactMatches, delhiveryTrackingUrl, trackSteps } from "./tracking";
 import { buildInvoicePdf, invoiceNumber } from "./invoice";
 import { couponDiscount, normalizeCode, totalsWithDiscount } from "./discounts";
 
@@ -77,6 +77,7 @@ export async function placeOrder(
           productName: products.name,
           variantName: productVariants.name,
           price: productVariants.price,
+          compareAtPrice: productVariants.compareAtPrice,
           stock: productVariants.stock,
           isActive: products.isActive,
         })
@@ -132,6 +133,10 @@ export async function placeOrder(
           productName: l.productName,
           variantName: l.variantName,
           unitPrice: l.unitPrice,
+          regularPrice: (() => {
+            const v = variants.find((x) => x.id === l.variantId);
+            return v?.compareAtPrice != null && v.compareAtPrice > l.unitPrice ? v.compareAtPrice : null;
+          })(),
           quantity: l.quantity,
         })),
       );
@@ -234,6 +239,7 @@ export async function saveTracking(orderId: number, awb: string, emailCustomer: 
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
   if (!order) return { ok: false, error: "Order not found." };
   if (order.status === "cancelled") return { ok: false, error: "This order is cancelled." };
+  if (!canShip(order.status)) return { ok: false, error: "Mark the order Paid before adding tracking." };
   const status = order.status === "delivered" ? "delivered" : "shipped";
   await db.update(orders).set({ trackingNumber: awb, status, shippedAt: order.shippedAt ?? new Date() }).where(eq(orders.id, orderId));
   if (!emailCustomer) return { ok: true, emailed: false };
