@@ -1,4 +1,5 @@
 import { desc, eq, inArray } from "drizzle-orm";
+import { delhiveryTrackingUrl } from "@/lib/tracking";
 import { getContent } from "@/lib/content";
 import { redirect } from "next/navigation";
 import { logout } from "@/app/actions";
@@ -57,6 +58,12 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
               <p className="mt-3 border-t border-sand/60 pt-3 text-right font-medium">Total {formatINR(o.total)}</p>
               {o.status === "pending_payment" && (
                 <p className="mt-2 text-sm text-taupe">We&apos;ll send a payment QR to your WhatsApp ({o.phone}) shortly.</p>
+              )}
+              {o.trackingNumber && o.status !== "cancelled" && (
+                <p className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-blush px-3 py-2 text-sm">
+                  <span>Delhivery AWB <strong>{o.trackingNumber}</strong></span>
+                  <a href={delhiveryTrackingUrl(o.trackingNumber)} target="_blank" rel="noreferrer" className="text-brand underline underline-offset-4">Track on Delhivery</a>
+                </p>
               )}
             </div>
           ))}

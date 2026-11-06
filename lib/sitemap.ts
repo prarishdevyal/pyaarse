@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 /** Public pages search engines should index. Cart, checkout, account and admin pages are left out on purpose. */
-export const STATIC_PATHS = ["/", "/shop", "/about", "/contact", "/privacy", "/terms"] as const;
+export const STATIC_PATHS = ["/", "/shop", "/about", "/contact", "/track", "/privacy", "/terms"] as const;
 
 export function buildSitemap(
   base: string,

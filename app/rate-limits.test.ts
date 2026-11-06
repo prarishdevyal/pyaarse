@@ -15,7 +15,7 @@ describe("rate limits", () => {
   });
 
   // Admin pages sit behind the admin login; these are the public ones and the ones that send email.
-  it.each(["adminLogin", "completeAdminInvite", "adminRequestPasswordReset", "resendInvoice", "inviteAdminAction"])("admin action %s is rate limited", (name) => {
+  it.each(["adminLogin", "completeAdminInvite", "adminRequestPasswordReset", "resendInvoice", "inviteAdminAction", "saveTrackingAction"])("admin action %s is rate limited", (name) => {
     expect(actions("./admin/actions.ts")[name]).toMatch(/limits\.\w+\.hit\(/);
   });
 });

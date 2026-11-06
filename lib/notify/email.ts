@@ -15,7 +15,7 @@ const discountRow = (o: OrderSummary) =>
     ? `<tr><td style="padding:4px 0">${esc(discountLabel(o))}</td><td style="padding:4px 0;text-align:right;color:#1f8f4e">−${formatINR(o.discount)}</td></tr>`
     : "";
 
-export function buildConfirmationEmail(o: OrderSummary): { subject: string; text: string; html: string } {
+export function buildConfirmationEmail(o: OrderSummary, trackUrl?: string): { subject: string; text: string; html: string } {
   const subject = `Your Pyaarse order ${o.orderNumber} is confirmed`;
   const itemsText = o.items
     .map((i) => `- ${i.productName} (${i.variantName}) x ${i.quantity}: ${formatINR(i.unitPrice * i.quantity)}`)
@@ -38,6 +38,7 @@ export function buildConfirmationEmail(o: OrderSummary): { subject: string; text
     `Shipping to: ${address}`,
     ``,
     `Next step: we'll message you on WhatsApp at ${o.phone} with a payment QR code. Your order will be prepared once payment is received.`,
+    ...(trackUrl ? [``, `Track your order any time: ${trackUrl}`] : []),
     ``,
     `With love,`,
     `Pyaarse`,
@@ -66,6 +67,7 @@ export function buildConfirmationEmail(o: OrderSummary): { subject: string; text
     <div style="background:#F3E7E3;border-radius:12px;padding:16px;margin:24px 0">
       <strong>Next step:</strong> we'll message you on WhatsApp at ${esc(o.phone)} with a payment QR code. Your order will be prepared once payment is received.
     </div>
+    ${trackUrl ? `<p><a href="${esc(trackUrl)}" style="color:#89211E">Track your order</a></p>` : ""}
     <p>With love,<br>Pyaarse</p>
   </div></body></html>`;
 
@@ -204,6 +206,30 @@ export function buildPasswordResetEmail(link: string, forAdmin = false): { subje
     <p>We got a request to reset the password for your Pyaarse ${forAdmin ? "admin " : ""}account.</p>
     <p style="margin:28px 0"><a href="${esc(link)}" style="background:#89211E;color:#FFFDF6;padding:12px 24px;border-radius:999px;text-decoration:none">Choose a new password</a></p>
     <p style="color:#8B817A;font-size:14px">The link works once, for about an hour. If you didn't ask for this, you can ignore this email. Your password won't change.</p>`);
+  return { subject, text, html };
+}
+
+/** "Your order has shipped" with the Delhivery waybill and both tracking links. */
+export function buildShippedEmail(o: OrderSummary, awb: string, delhiveryUrl: string, trackUrl: string): { subject: string; text: string; html: string } {
+  const subject = `Your Pyaarse order ${o.orderNumber} is on its way`;
+  const text = [
+    `Hi ${o.customerName},`,
+    ``,
+    `Good news: your order ${o.orderNumber} has shipped with Delhivery.`,
+    `Tracking number (AWB): ${awb}`,
+    ``,
+    `Track it on Delhivery: ${delhiveryUrl}`,
+    `Or see your order on our site: ${trackUrl}`,
+    ``,
+    `With love,`,
+    `Pyaarse`,
+  ].join("\n");
+  const html = page(`<p>Hi ${esc(o.customerName)},</p>
+    <p>Good news: your order <strong>${esc(o.orderNumber)}</strong> has shipped with Delhivery.</p>
+    <p>Tracking number (AWB): <strong>${esc(awb)}</strong></p>
+    <p style="margin:28px 0"><a href="${esc(delhiveryUrl)}" style="background:#89211E;color:#FFFDF6;padding:12px 24px;border-radius:999px;text-decoration:none">Track on Delhivery</a></p>
+    <p style="color:#8B817A;font-size:14px">You can also see your order on our site: <a href="${esc(trackUrl)}" style="color:#89211E">${esc(trackUrl)}</a></p>
+    <p>With love,<br>Pyaarse</p>`);
   return { subject, text, html };
 }
 

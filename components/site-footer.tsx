@@ -20,6 +20,7 @@ export function SiteFooter({ tagline, contact: c }: { tagline: string; contact: 
             <li><Link href="/about" className={link}>Our story</Link></li>
             <li><Link href="/wishlist" className={link}>Wishlist</Link></li>
             <li><Link href="/account" className={link}>Your orders</Link></li>
+            <li><Link href="/track" className={link}>Track your order</Link></li>
           </ul>
         </nav>
         <nav aria-label="Help" className="text-sm">

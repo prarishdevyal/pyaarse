@@ -33,6 +33,8 @@ export const limits = {
   contactByIp: limiter("contact-ip", 5, 60 * MIN),
   contactByEmail: limiter("contact-email", 3, 60 * MIN),
   quoteByIp: limiter("quote-ip", 120, MIN),
+  trackByIp: limiter("track-ip", 20, 15 * MIN),
+  trackByOrder: limiter("track-order", 10, 60 * MIN),
   wishlistByUser: limiter("wishlist-user", 60, MIN),
   productCardsByIp: limiter("cards-ip", 60, MIN),
   /** Emails an admin can trigger by hand (resend invoice, invite admin), to protect the Zoho sending allowance. */

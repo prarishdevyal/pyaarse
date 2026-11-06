@@ -154,3 +154,8 @@ export const resetPasswordSchema = z
     token_hash: z.string().min(10, "This link is incomplete. Ask for a new one."),
   })
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "The passwords don't match" });
+
+export const trackOrderSchema = z.object({
+  orderNumber: z.string().trim().toUpperCase().pipe(z.string().regex(/^PY\d{1,9}$/, "Enter your order number, e.g. PY1042")),
+  contact: z.string().trim().min(5, "Enter the email or WhatsApp number you used at checkout").max(200),
+});

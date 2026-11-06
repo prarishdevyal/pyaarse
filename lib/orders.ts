@@ -8,7 +8,8 @@ import { getSettings, getStoreContact } from "./settings";
 import type { CheckoutInput } from "./validation";
 import type { OrderSummary } from "./notify/types";
 import { buildTelegramMessage, sendTelegram } from "./notify/telegram";
-import { buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, orderAlertEmail, sendEmail } from "./notify/email";
+import { buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, buildShippedEmail, orderAlertEmail, sendEmail } from "./notify/email";
+import { contactMatches, delhiveryTrackingUrl, trackSteps } from "./tracking";
 import { buildInvoicePdf, invoiceNumber } from "./invoice";
 import { couponDiscount, normalizeCode, totalsWithDiscount } from "./discounts";
 
@@ -165,7 +166,7 @@ async function notifyNewOrder(orderId: number, summary: OrderSummary, emailCusto
     sendTelegram(buildTelegramMessage(summary, adminOrderUrl)),
     alertTo ? sendEmail(alertTo, buildAdminOrderEmail(summary, adminOrderUrl)) : Promise.resolve(),
     // The admin can switch customer confirmation emails off in Settings.
-    emailCustomer ? sendEmail(summary.email, buildConfirmationEmail(summary)) : Promise.resolve(),
+    emailCustomer ? sendEmail(summary.email, buildConfirmationEmail(summary, trackPageUrl(summary.orderNumber))) : Promise.resolve(),
   ]);
   for (const r of results) if (r.status === "rejected") console.error("[order notify]", r.reason);
 }
@@ -220,4 +221,61 @@ export async function sendInvoice(orderId: number): Promise<{ ok: true } | { ok:
     console.error("[invoice]", e);
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/** The shop's "track your order" page, pre-filled with the order number. */
+export const trackPageUrl = (orderNumber: string) => `${siteUrl()}/track?n=${encodeURIComponent(orderNumber)}`;
+
+/**
+ * Saves the Delhivery waybill. Pending/paid orders become Shipped; delivered orders just get the number updated.
+ * Optionally emails the customer. Returns the email error instead of throwing, so the admin sees it.
+ */
+export async function saveTracking(orderId: number, awb: string, emailCustomer: boolean): Promise<{ ok: true; emailed: boolean } | { ok: false; error: string }> {
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+  if (!order) return { ok: false, error: "Order not found." };
+  if (order.status === "cancelled") return { ok: false, error: "This order is cancelled." };
+  const status = order.status === "delivered" ? "delivered" : "shipped";
+  await db.update(orders).set({ trackingNumber: awb, status, shippedAt: order.shippedAt ?? new Date() }).where(eq(orders.id, orderId));
+  if (!emailCustomer) return { ok: true, emailed: false };
+  try {
+    const summary = await getOrderSummary(orderId);
+    await sendEmail(order.email, buildShippedEmail(summary!, awb, delhiveryTrackingUrl(awb), trackPageUrl(order.orderNumber)));
+    return { ok: true, emailed: true };
+  } catch (e) {
+    console.error("[shipped email]", e);
+    return { ok: false, error: `Tracking saved, but the email couldn't be sent: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+export type TrackedOrder = {
+  orderNumber: string;
+  firstName: string;
+  placedAt: string;
+  shippedAt: string | null;
+  status: (typeof schema.orders.$inferSelect)["status"];
+  steps: ReturnType<typeof trackSteps>;
+  total: number;
+  items: { name: string; quantity: number }[];
+  trackingNumber: string | null;
+  delhiveryUrl: string | null;
+};
+
+/** What a guest may see about their order: no address, phone or email. Null unless the contact matches. */
+export async function findTrackedOrder(orderNumber: string, contact: string): Promise<TrackedOrder | null> {
+  const [order] = await db.select().from(orders).where(eq(orders.orderNumber, orderNumber));
+  if (!order || !contactMatches(order, contact)) return null;
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+  const fmt = (d: Date) => d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" });
+  return {
+    orderNumber: order.orderNumber,
+    firstName: order.customerName.split(" ")[0],
+    placedAt: fmt(order.createdAt),
+    shippedAt: order.shippedAt ? fmt(order.shippedAt) : null,
+    status: order.status,
+    steps: trackSteps(order.status),
+    total: order.total,
+    items: items.map((i) => ({ name: `${i.productName} (${i.variantName})`, quantity: i.quantity })),
+    trackingNumber: order.trackingNumber,
+    delhiveryUrl: order.trackingNumber ? delhiveryTrackingUrl(order.trackingNumber) : null,
+  };
 }

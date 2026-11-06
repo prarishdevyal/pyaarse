@@ -6,11 +6,11 @@ import { db, schema } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getProductCards, type ProductCard } from "@/lib/catalog";
-import { placeOrder } from "@/lib/orders";
+import { findTrackedOrder, placeOrder, type TrackedOrder } from "@/lib/orders";
 import { priceCart, type CartLine } from "@/lib/pricing";
 import { couponDiscount, normalizeCode, totalsWithDiscount } from "@/lib/discounts";
 import { getShippingSettings } from "@/lib/settings";
-import { cartItemsSchema, checkoutSchema, contactSchema, forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema } from "@/lib/validation";
+import { cartItemsSchema, checkoutSchema, contactSchema, forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema, trackOrderSchema } from "@/lib/validation";
 import { resetSentMessage, sendPasswordResetLink } from "@/lib/password-reset";
 import { buildContactTelegramMessage, sendTelegram } from "@/lib/notify/telegram";
 import { safeNext } from "@/lib/redirect";
@@ -200,6 +200,19 @@ export async function fetchProductCards(ids: number[]): Promise<ProductCard[]> {
   if (!await limits.productCardsByIp.hit(await clientIp())) return [];
   const clean = [...new Set(ids)].filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
   return getProductCards({ ids: clean });
+}
+
+// ---------- Track order ----------
+
+export type TrackState = { error?: string; fieldErrors?: Record<string, string>; order?: TrackedOrder } | undefined;
+
+export async function trackOrder(_prev: TrackState, formData: FormData): Promise<TrackState> {
+  const parsed = trackOrderSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error.issues) };
+  const ipOk = await limits.trackByIp.hit(await clientIp());
+  if (!ipOk || !await limits.trackByOrder.hit(parsed.data.orderNumber)) return { error: TOO_MANY };
+  const order = await findTrackedOrder(parsed.data.orderNumber, parsed.data.contact);
+  return order ? { order } : { error: "We couldn't find that order. Check the order number and use the email or WhatsApp number you gave at checkout." };
 }
 
 // ---------- Contact form ----------

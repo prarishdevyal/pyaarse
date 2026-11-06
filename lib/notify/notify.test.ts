@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildContactTelegramMessage, buildTelegramMessage } from "./telegram";
-import { buildPasswordResetEmail, buildAdminAddedEmail, buildAdminInviteEmail, buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, emailProvider, mailFrom, orderAlertEmail, smtpOptions } from "./email";
+import { buildShippedEmail, buildPasswordResetEmail, buildAdminAddedEmail, buildAdminInviteEmail, buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, emailProvider, mailFrom, orderAlertEmail, smtpOptions } from "./email";
 import type { OrderSummary } from "./types";
 
 const order: OrderSummary = {
@@ -143,5 +143,19 @@ describe("buildPasswordResetEmail", () => {
     expect(e.html).toContain("token_hash=abc&amp;type=recovery");
     expect(e.text).toContain("ignore this email");
     expect(buildPasswordResetEmail("https://admin.pyaarse.net/set-password", true).subject).toBe("Reset your Pyaarse admin password");
+  });
+});
+
+describe("tracking emails", () => {
+  it("adds a track link to the order confirmation when given", () => {
+    expect(buildConfirmationEmail(order, "https://www.pyaarse.net/track?n=PY1042").text).toContain("Track your order any time: https://www.pyaarse.net/track?n=PY1042");
+    expect(buildConfirmationEmail(order).text).not.toContain("Track your order");
+  });
+  it("tells the customer the order shipped, with the AWB and both links", () => {
+    const e = buildShippedEmail(order, "1234567890123", "https://www.delhivery.com/track-v2/package/1234567890123", "https://www.pyaarse.net/track?n=PY1042");
+    expect(e.subject).toBe("Your Pyaarse order PY1042 is on its way");
+    expect(e.text).toContain("Tracking number (AWB): 1234567890123");
+    expect(e.html).toContain("https://www.delhivery.com/track-v2/package/1234567890123");
+    expect(e.html).toContain("Asha &lt;b&gt;");
   });
 });

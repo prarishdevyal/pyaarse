@@ -22,7 +22,10 @@ export default async function OrderConfirmedPage({ searchParams }: { searchParam
           <li>{t("confirmed.step3")}</li>
         </ol>
       </div>
-      <Link href="/shop" className="btn-primary mt-8">{t("confirmed.cta")}</Link>
+      <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <Link href="/shop" className="btn-primary">{t("confirmed.cta")}</Link>
+        {orderNumber && <Link href={`/track?n=${orderNumber}`} className="btn-secondary">Track this order</Link>}
+      </div>
     </div>
   );
 }

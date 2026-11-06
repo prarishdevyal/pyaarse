@@ -184,6 +184,14 @@ export const CONTENT_GROUPS: ContentGroup[] = [
     ],
   },
   {
+    id: "track",
+    title: "Track order page",
+    fields: [
+      line("track.title", "Heading", "Track your order"),
+      text("track.intro", "Text", "Enter your order number and the email or WhatsApp number you used at checkout."),
+    ],
+  },
+  {
     id: "account",
     title: "Account page",
     fields: [

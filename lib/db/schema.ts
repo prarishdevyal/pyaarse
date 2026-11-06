@@ -68,6 +68,9 @@ export const orders = pgTable("orders", {
   shipping: integer("shipping").notNull(),
   total: integer("total").notNull(),
   status: text("status", { enum: ORDER_STATUSES }).notNull().default("pending_payment"),
+  /** Delhivery waybill (AWB) number, set when the order ships. */
+  trackingNumber: text("tracking_number"),
+  shippedAt: timestamp("shipped_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
 

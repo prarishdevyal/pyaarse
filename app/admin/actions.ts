@@ -13,7 +13,8 @@ import { slugify } from "@/lib/format";
 import { expiryFromDate, toStoredPrices } from "@/lib/discounts";
 import { canChangeStatus, isOrderStatus, shouldRestock } from "@/lib/order-status";
 import { saveSettings as storeSettings } from "@/lib/settings";
-import { restockOrders, sendInvoice } from "@/lib/orders";
+import { restockOrders, saveTracking, sendInvoice } from "@/lib/orders";
+import { isValidAwb, normalizeAwb } from "@/lib/tracking";
 import { removeImages, saveImage } from "@/lib/uploads";
 import { couponSchema, forgotPasswordSchema, inviteAdminSchema, loginSchema, setAdminPasswordSchema, settingsSchema, variantProblems } from "@/lib/validation";
 import { inviteAdmin, setUserRole } from "@/lib/users";
@@ -105,6 +106,20 @@ export async function updateOrderStatus(formData: FormData) {
   // Approving payment sends the customer their invoice.
   if (from === "pending_payment" && to === "paid") redirect(invoiceResultUrl(id, await sendInvoice(id)));
   redirect(`/orders/${id}`);
+}
+
+/** Saves the Delhivery waybill, marks the order shipped, and (optionally) emails the customer. */
+export async function saveTrackingAction(formData: FormData) {
+  const actor = await requireAdmin();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) return;
+  const awb = normalizeAwb(String(formData.get("awb") ?? ""));
+  const back = (q: string) => redirect(`/orders/${id}?${q}`);
+  if (!isValidAwb(awb)) back(`shipping=failed&reason=${encodeURIComponent("Enter the Delhivery AWB number (letters and numbers only).")}`);
+  const notify = formData.get("notify") === "on";
+  if (notify && !await limits.adminEmailsByUser.hit(actor.id)) back(`shipping=failed&reason=${encodeURIComponent(TOO_MANY)}`);
+  const r = await saveTracking(id, awb, notify);
+  back(r.ok ? `shipping=${r.emailed ? "emailed" : "saved"}` : `shipping=failed&reason=${encodeURIComponent(r.error.slice(0, 200))}`);
 }
 
 export async function resendInvoice(formData: FormData) {
