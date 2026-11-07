@@ -4,7 +4,7 @@ import { db, schema } from "./db";
 import { orderNumberFor } from "./format";
 import { payWindowEnd } from "./order-expiry";
 import { priceCart } from "./pricing";
-import { getSettings, getStoreContact } from "./settings";
+import { getSettings, getStoreContact, MAINTENANCE_MESSAGE } from "./settings";
 import type { CheckoutInput } from "./validation";
 import type { OrderSummary } from "./notify/types";
 import { buildTelegramMessage, sendTelegram } from "./notify/telegram";
@@ -80,8 +80,9 @@ export async function placeOrder(
 ): Promise<{ ok: true; orderId: number; orderNumber: string } | { ok: false; error: string }> {
   // Every order is paid online, so there's no checkout without Cashfree.
   if (!cashfreeConfig()) return { ok: false, error: "Checkout is paused for a moment. Please try again in a little while." };
-  await releaseExpiredOrders();
   const settings = await getSettings();
+  if (settings.maintenance) return { ok: false, error: MAINTENANCE_MESSAGE };
+  await releaseExpiredOrders();
   try {
     const { order } = await db.transaction(async (tx) => {
       const variantIds = [...new Set(input.items.map((i) => i.variantId))];

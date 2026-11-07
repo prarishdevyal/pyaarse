@@ -14,6 +14,7 @@ import {
 } from "./cashfree";
 import { canStartPayment, CHECKOUT_OPEN_MS, checkoutExpiry, isOverdue, payWindowEnd } from "./order-expiry";
 import { siteUrl } from "./hosts";
+import { getSettings, MAINTENANCE_MESSAGE } from "./settings";
 import { payPath } from "./pay-link";
 import { formatINR } from "./format";
 import { sendTelegram } from "./notify/telegram";
@@ -95,6 +96,7 @@ async function holdUntil(orderId: number, until: Date): Promise<boolean> {
 export async function startPayment(orderNumber: string): Promise<StartPaymentResult> {
   const gw = gateway();
   if (!gw) return { ok: false, error: `Online payment isn't available right now. ${CONTACT_US}` };
+  if ((await getSettings()).maintenance) return { ok: false, error: MAINTENANCE_MESSAGE };
   const [order] = await db.select().from(orders).where(eq(orders.orderNumber, orderNumber));
   if (!order) return { ok: false, error: "We couldn't find that order." };
   if (order.status === "cancelled") return { ok: false, closed: true, error: "This order was cancelled, so it can't be paid." };

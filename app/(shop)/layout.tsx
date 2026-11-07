@@ -14,10 +14,12 @@ import { SiteTextProvider } from "@/components/site-text";
 import { formatINR } from "@/lib/format";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { MaintenancePage } from "@/components/maintenance-page";
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
   const [user, settings, t] = await Promise.all([getCurrentUser(), getSettings(), getContent()]);
   const contact = storeContact(process.env, { email: settings.contactEmail, whatsapp: settings.contactWhatsapp, instagram: settings.contactInstagram });
+  if (settings.maintenance) return <MaintenancePage contact={contact} />;
   const wishlist = user
     ? (await db.select().from(schema.wishlistItems).where(eq(schema.wishlistItems.userId, user.id))).map((w) => w.productId)
     : [];

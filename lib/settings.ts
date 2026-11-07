@@ -21,7 +21,15 @@ export async function getShippingSettings(): Promise<ShippingSettings> {
   return { shippingFee, freeShippingThreshold };
 }
 
-export async function saveSettings(s: ShopSettings): Promise<void> {
+/** Turns maintenance mode on or off (its own switch, so saving other settings never changes it). */
+export async function setMaintenance(on: boolean): Promise<void> {
+  const value = String(on);
+  await db.insert(schema.settings).values({ key: "maintenance_mode", value }).onConflictDoUpdate({ target: schema.settings.key, set: { value } });
+}
+
+export const MAINTENANCE_MESSAGE = "The shop is closed for a short while for maintenance. Please try again soon.";
+
+export async function saveSettings(s: Omit<ShopSettings, "maintenance">): Promise<void> {
   const rows: [string, string][] = [
     ["shipping_fee", String(s.shippingFee)],
     ["free_shipping_threshold", String(s.freeShippingThreshold)],

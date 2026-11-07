@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { adminLogout } from "../actions";
+import { getSettings } from "@/lib/settings";
 
 export const metadata = { title: { default: "Admin", template: "%s · Pyaarse Admin" }, robots: { index: false } };
 
@@ -17,7 +18,7 @@ const NAV = [
 ];
 
 export default async function AdminPanelLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireAdmin();
+  const [user, { maintenance }] = await Promise.all([requireAdmin(), getSettings()]);
   return (
     <div className="min-h-screen bg-[#fbf8f3]">
       <header className="border-b border-sand/60 bg-ivory">
@@ -38,6 +39,11 @@ export default async function AdminPanelLayout({ children }: { children: React.R
           </div>
         </div>
       </header>
+      {maintenance && (
+        <p className="bg-brand px-4 py-2 text-center text-sm text-ivory" role="status">
+          Maintenance mode is on: the shop is closed to customers. <Link href="/settings" className="underline underline-offset-4">Turn it off in Settings</Link>
+        </p>
+      )}
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
     </div>
   );

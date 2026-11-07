@@ -12,7 +12,7 @@ import { clientIp, limits, TOO_MANY } from "@/lib/limits";
 import { slugify } from "@/lib/format";
 import { expiryFromDate, toStoredPrices } from "@/lib/discounts";
 import { canChangeStatus, isOrderStatus, shouldRestock } from "@/lib/order-status";
-import { saveSettings as storeSettings } from "@/lib/settings";
+import { saveSettings as storeSettings, setMaintenance } from "@/lib/settings";
 import { restockOrders, saveTracking, sendInvoice } from "@/lib/orders";
 import { closeOnlinePayment } from "@/lib/payments";
 import { isValidAwb, normalizeAwb } from "@/lib/tracking";
@@ -380,6 +380,13 @@ export async function saveSettings(_prev: FormState, formData: FormData): Promis
   const freeShippingThreshold = Number(parsed.data.freeShippingThreshold);
   await storeSettings({ shippingFee, freeShippingThreshold, contactEmail, contactWhatsapp, contactInstagram });
   return { success: "Settings saved." };
+}
+
+/** The maintenance switch in Settings: on closes the shop to customers; the admin keeps working. */
+export async function toggleMaintenance(formData: FormData) {
+  await requireAdmin();
+  await setMaintenance(formData.get("on") === "true");
+  redirect("/settings");
 }
 
 // ---------- Site text ----------

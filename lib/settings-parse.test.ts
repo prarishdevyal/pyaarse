@@ -12,11 +12,19 @@ describe("parseSettings", () => {
       { key: "contact_whatsapp", value: "919876543210" },
       { key: "contact_instagram", value: "pyaarse_net" },
     ])).toEqual({
-      shippingFee: 50, freeShippingThreshold: 1500,
+      shippingFee: 50, freeShippingThreshold: 1500, maintenance: false,
       contactEmail: "query@pyaarse.net", contactWhatsapp: "919876543210", contactInstagram: "pyaarse_net",
     });
   });
   it("ignores corrupt numbers", () => {
     expect(parseSettings([{ key: "shipping_fee", value: "-3" }]).shippingFee).toBe(DEFAULT_SETTINGS.shippingFee);
+  });
+});
+
+describe("maintenance mode", () => {
+  it("is off unless switched on", () => {
+    expect(parseSettings([]).maintenance).toBe(false);
+    expect(parseSettings([{ key: "maintenance_mode", value: "false" }]).maintenance).toBe(false);
+    expect(parseSettings([{ key: "maintenance_mode", value: "true" }]).maintenance).toBe(true);
   });
 });
