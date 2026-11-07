@@ -16,6 +16,7 @@ import { saveSettings as storeSettings } from "@/lib/settings";
 import { restockOrders, saveTracking, sendInvoice } from "@/lib/orders";
 import { closeOnlinePayment } from "@/lib/payments";
 import { isValidAwb, normalizeAwb } from "@/lib/tracking";
+import { cleanAdminNote } from "@/lib/order-note";
 import { removeImages, saveImage } from "@/lib/uploads";
 import { couponSchema, forgotPasswordSchema, inviteAdminSchema, loginSchema, setAdminPasswordSchema, settingsSchema, variantProblems } from "@/lib/validation";
 import { inviteAdmin, setUserRole } from "@/lib/users";
@@ -123,6 +124,16 @@ export async function saveTrackingAction(formData: FormData) {
   if (notify && !await limits.adminEmailsByUser.hit(actor.id)) back(`shipping=failed&reason=${encodeURIComponent(TOO_MANY)}`);
   const r = await saveTracking(id, awb, notify);
   back(r.ok ? `shipping=${r.emailed ? "emailed" : "saved"}` : `shipping=failed&reason=${encodeURIComponent(r.error.slice(0, 200))}`);
+}
+
+/** Saves the private admin note on an order; the Remove button (or an empty box) clears it. */
+export async function saveAdminNoteAction(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) return;
+  const note = formData.get("remove") ? "" : cleanAdminNote(formData.get("note"));
+  await db.update(schema.orders).set({ adminNote: note }).where(eq(schema.orders.id, id));
+  redirect(`/orders/${id}?note=${note ? "saved" : "removed"}`);
 }
 
 export async function resendInvoice(formData: FormData) {

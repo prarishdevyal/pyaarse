@@ -10,7 +10,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { ShareInvoiceButton } from "@/components/share-invoice-button";
 import { invoiceNumber } from "@/lib/invoice";
 import { invoiceWhatsAppText } from "@/lib/invoice-message";
-import { resendInvoice, saveTrackingAction, updateOrderStatus } from "../../../actions";
+import { resendInvoice, saveAdminNoteAction, saveTrackingAction, updateOrderStatus } from "../../../actions";
+import { ADMIN_NOTE_MAX } from "@/lib/order-note";
 import { canShip, delhiveryTrackingUrl } from "@/lib/tracking";
 import { regularPriceFor, saleSavings } from "@/lib/original-price";
 import { getPayment, onlinePaymentsEnabled, reconcilePayment, type Payment } from "@/lib/payments";
@@ -23,7 +24,7 @@ export default async function AdminOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ invoice?: string; reason?: string; shipping?: string }>;
+  searchParams: Promise<{ invoice?: string; reason?: string; shipping?: string; note?: string }>;
 }) {
   await requireAdmin();
   const id = Number((await params).id);
@@ -55,7 +56,7 @@ export default async function AdminOrderPage({
   const savings = saleSavings(items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice, regular: regularOf(i) })));
   const pkgOf = (variantId: number | null) => (variantId ? packages.get(variantId) ?? null : null);
   const parcel = parcelWeight(items.map((i) => ({ quantity: i.quantity, pkg: pkgOf(i.variantId) })));
-  const { invoice, reason, shipping } = await searchParams;
+  const { invoice, reason, shipping, note } = await searchParams;
   const paid = order.status === "paid" || order.status === "shipped" || order.status === "delivered";
   const invoiceFile = `${invoiceNumber(order.orderNumber)}.pdf`;
   const options = ORDER_STATUSES.filter((s) => canChangeStatus(order.status, s));
@@ -142,6 +143,19 @@ export default async function AdminOrderPage({
         </div>
 
         <aside className="space-y-4">
+          <form action={saveAdminNoteAction} className="card space-y-3 bg-white p-5">
+            <input type="hidden" name="id" value={order.id} />
+            <div className="flex items-baseline justify-between gap-3">
+              <label htmlFor="admin-note" className="font-serif text-xl">Admin note</label>
+              {note && <span className="text-xs text-[#1f8f4e]" role="status">{note === "removed" ? "Note removed" : "Note saved"}</span>}
+            </div>
+            <textarea id="admin-note" name="note" rows={3} maxLength={ADMIN_NOTE_MAX} defaultValue={order.adminNote} placeholder="e.g. Gift wrap, call before delivery" className="input" />
+            <p className="text-xs text-taupe">Only admins see this. The customer never does.</p>
+            <div className="flex gap-2">
+              <button className="btn-primary flex-1">{order.adminNote ? "Update note" : "Save note"}</button>
+              {order.adminNote && <button name="remove" value="1" className="btn-secondary">Remove</button>}
+            </div>
+          </form>
           {(payment || payUrl) && <PaymentPanel payment={payment} payUrl={payUrl} orderPending={order.status === "pending_payment"} />}
           {order.status !== "cancelled" && (
             <div className="card space-y-3 bg-white p-5">

@@ -42,4 +42,9 @@ describe("payment security guards", () => {
     const markPaid = src.indexOf('set({ status: "paid" })');
     expect(markPaid).toBeGreaterThan(src.indexOf("successfulPayment("));
   });
+
+  it("the private admin note is only used by admin code", () => {
+    const outside = files.filter((f) => /adminNote|admin_note/.test(readFileSync(f, "utf8")) && !/[/\\]admin[/\\]|lib[/\\]db[/\\]schema\.ts$/.test(f));
+    expect(outside).toEqual([]);
+  });
 });

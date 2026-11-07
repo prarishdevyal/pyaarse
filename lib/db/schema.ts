@@ -56,6 +56,8 @@ export const orders = pgTable("orders", {
   state: text("state").notNull(),
   pincode: text("pincode").notNull(),
   notes: text("notes").notNull().default(""),
+  /** Private note for the shop team; never shown to the customer. */
+  adminNote: text("admin_note").notNull().default(""),
   subtotal: integer("subtotal").notNull(),
   /** Coupon discount taken off the subtotal. */
   discount: integer("discount").notNull().default(0),
