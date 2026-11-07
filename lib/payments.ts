@@ -108,6 +108,14 @@ export async function startPayment(orderNumber: string): Promise<StartPaymentRes
       return { ok: false, paid: true, error: "This order is already paid." };
     }
     if (cf.order_status !== "ACTIVE" || !cf.payment_session_id) return { ok: false, error: `This payment link has expired. ${CONTACT_US}` };
+    // The admin may have marked the order paid or cancelled while we were talking to Cashfree.
+    const [now] = await db.select({ status: orders.status }).from(orders).where(eq(orders.id, order.id));
+    if (now.status !== "pending_payment") {
+      await gw.api.terminateOrder(row.providerOrderId).catch((e) => console.error("[payments] terminate", e instanceof Error ? e.message : e));
+      return now.status === "cancelled"
+        ? { ok: false, error: `This order was cancelled, so it can't be paid. ${CONTACT_US}` }
+        : { ok: false, paid: true, error: "This order is already paid." };
+    }
     if (!sameAmount(cf.order_amount, order.total)) {
       console.error("[payments] amount differs from Cashfree", order.orderNumber);
       return { ok: false, error: `Something doesn't add up with this order's amount. ${CONTACT_US}` };
@@ -169,13 +177,14 @@ export async function reconcilePayment(orderId: number): Promise<PaymentState> {
   });
 
   const method = paid.payment_group ? ` by ${paid.payment_group.replace(/_/g, " ")}` : "";
+  const test = row.mode === "sandbox" ? "🧪 TEST MODE (no real money, don't ship) " : "";
   if (outcome === "marked") {
     const invoice = await sendInvoice(orderId);
-    await alert(`💰 ${order.orderNumber} paid online: ${formatINR(order.total)}${method}. ${invoice.ok ? "Invoice emailed to the customer." : `Invoice email failed: ${invoice.error}`}`);
+    await alert(`${test}💰 ${order.orderNumber} paid online: ${formatINR(order.total)}${method}. ${invoice.ok ? "Invoice emailed to the customer." : `Invoice email failed: ${invoice.error}`}`);
   } else if (outcome === "already_paid") {
-    await alert(`⚠️ ${order.orderNumber} was paid online (${formatINR(order.total)}${method}), but it had already been marked paid by hand. If the customer also paid you directly, refund one payment.`);
+    await alert(`${test}⚠️ ${order.orderNumber} was paid online (${formatINR(order.total)}${method}), but it had already been marked paid by hand. If the customer also paid you directly, refund one payment.`);
   } else if (outcome === "after_cancel") {
-    const text = `⚠️ ${order.orderNumber} was paid online (${formatINR(order.total)}${method}) after the order had been cancelled and its stock released. Refund it from the Cashfree dashboard, or contact the customer.`;
+    const text = `${test}⚠️ ${order.orderNumber} was paid online (${formatINR(order.total)}${method}) after the order had been cancelled and its stock released. Refund it from the Cashfree dashboard, or contact the customer.`;
     await alert(text);
     const to = orderAlertEmail();
     if (to) await sendEmail(to, { subject: `Paid after cancel: ${order.orderNumber}`, text, html: `<p>${text}</p>` }).catch((e) => console.error("[payments] alert email", e));
@@ -206,15 +215,21 @@ export async function closeOnlinePayment(orderId: number): Promise<void> {
   }
 }
 
-/** Before unpaid orders are auto-cancelled, catch any payment whose confirmation hasn't arrived yet. */
-export async function reconcileBeforeExpiry(orderIds: number[]): Promise<void> {
+/**
+ * Before unpaid orders are auto-cancelled, catch any payment whose confirmation hasn't arrived yet.
+ * Returns the orders that couldn't be checked (Cashfree unreachable): those must not be cancelled yet.
+ */
+export async function reconcileBeforeExpiry(orderIds: number[]): Promise<number[]> {
+  const unchecked: number[] = [];
   for (const id of orderIds) {
     try {
       await reconcilePayment(id);
     } catch (e) {
+      unchecked.push(id);
       console.error("[payments] pre-expiry check failed", id, e instanceof Error ? e.message : e);
     }
   }
+  return unchecked;
 }
 
 export async function getPayment(orderId: number): Promise<Payment | null> {

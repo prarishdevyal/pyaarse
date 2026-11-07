@@ -26,14 +26,17 @@ export default async function OrderConfirmedPage({ searchParams }: { searchParam
 
       {view && canPay && <PaymentCard view={view} token={token!} autoStart={pay === "1"} />}
 
-      <div className="anim-rise card mt-8 p-6 text-left" style={{ "--delay": "150ms" } as React.CSSProperties}>
-        <p className="font-medium">{t("confirmed.next")}</p>
-        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-charcoal/85">
-          {sendOrderEmails && <li>{t("confirmed.step1")}</li>}
-          <li>{t("confirmed.step2")}</li>
-          <li>{t("confirmed.step3")}</li>
-        </ol>
-      </div>
+      {/* The payment steps only make sense while the order is still waiting for payment. */}
+      {(!view || view.status === "pending_payment") && (
+        <div className="anim-rise card mt-8 p-6 text-left" style={{ "--delay": "150ms" } as React.CSSProperties}>
+          <p className="font-medium">{t("confirmed.next")}</p>
+          <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-charcoal/85">
+            {sendOrderEmails && <li>{t("confirmed.step1")}</li>}
+            <li>{t("confirmed.step2")}</li>
+            <li>{t("confirmed.step3")}</li>
+          </ol>
+        </div>
+      )}
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         <Link href="/shop" className="btn-primary">{t("confirmed.cta")}</Link>
         {orderNumber && <Link href={`/track?n=${orderNumber}`} className="btn-secondary">Track this order</Link>}

@@ -14,9 +14,15 @@ const BASE_URL: Record<CashfreeMode, string> = {
   production: "https://api.cashfree.com/pg",
 };
 
-/** The key pair picked by CASHFREE_ENV, or null when it isn't filled in (online payment is then off). */
+/**
+ * The key pair picked by CASHFREE_ENV, or null when it isn't filled in (online payment is then off).
+ * On the live Vercel deployment CASHFREE_ENV must be spelled out: a missing or mistyped value must not
+ * quietly switch the real shop to sandbox, where test payments would mark real orders paid.
+ */
 export function cashfreeConfig(env: Record<string, string | undefined> = process.env): CashfreeConfig | null {
-  const mode: CashfreeMode = env.CASHFREE_ENV?.trim().toLowerCase() === "production" ? "production" : "sandbox";
+  const wanted = env.CASHFREE_ENV?.trim().toLowerCase();
+  if (wanted !== "sandbox" && wanted !== "production" && env.VERCEL_ENV === "production") return null;
+  const mode: CashfreeMode = wanted === "production" ? "production" : "sandbox";
   const prefix = mode === "production" ? "CASHFREE_PROD" : "CASHFREE_SANDBOX";
   const appId = env[`${prefix}_APP_ID`]?.trim();
   const secretKey = env[`${prefix}_SECRET_KEY`]?.trim();

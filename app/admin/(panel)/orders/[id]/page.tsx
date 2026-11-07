@@ -258,6 +258,7 @@ function PaymentPanel({ payment, payUrl, orderPending }: { payment: Payment | nu
       {payment && payment.status !== "created" ? (
         <>
           <p className="font-medium text-green-800">Paid online{method ? ` by ${method}` : ""}: {formatINR(payment.amount)}</p>
+          {payment.mode === "sandbox" && <p className="rounded-lg bg-amber-50 p-2 text-amber-900">Test payment: no real money was received. Don&apos;t ship this order.</p>}
           {payment.paidAt && <p className="text-taupe">{formatDateTime(payment.paidAt)}</p>}
           <p className="text-xs text-taupe">Cashfree payment ID: <span className="select-all">{payment.providerPaymentId}</span></p>
         </>

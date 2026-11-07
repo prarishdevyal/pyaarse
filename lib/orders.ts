@@ -51,11 +51,15 @@ export async function releaseExpiredOrders(now = new Date()): Promise<number> {
   const cutoff = expiryCutoff(now, pendingOrderTtlHours(process.env.PENDING_ORDER_TTL_HOURS));
   // Orders the customer started paying online: confirm with Cashfree first, so a late confirmation isn't cancelled.
   const startedOnline = await db
-    .select({ id: orders.id })
+    .select({ id: orders.id, createdAt: orders.createdAt })
     .from(orders)
     .innerJoin(payments, eq(payments.orderId, orders.id))
     .where(and(eq(orders.status, "pending_payment"), lt(orders.createdAt, cutoff), eq(payments.status, "created")));
-  if (startedOnline.length) await reconcileBeforeExpiry(startedOnline.map((o) => o.id));
+  // If Cashfree can't be reached, keep those orders until a later sweep can check them (for up to a day),
+  // rather than cancel an order the customer may have paid for.
+  const unchecked = startedOnline.length ? await reconcileBeforeExpiry(startedOnline.map((o) => o.id)) : [];
+  const graceCutoff = new Date(cutoff.getTime() - 24 * 3600_000);
+  const keep = new Set(startedOnline.filter((o) => unchecked.includes(o.id) && o.createdAt > graceCutoff).map((o) => o.id));
   return db.transaction(async (tx) => {
     const expired = await tx
       .select({ id: orders.id })
@@ -63,7 +67,7 @@ export async function releaseExpiredOrders(now = new Date()): Promise<number> {
       .where(and(eq(orders.status, "pending_payment"), lt(orders.createdAt, cutoff)))
       .orderBy(orders.id)
       .for("update", { skipLocked: true });
-    const ids = expired.map((o) => o.id);
+    const ids = expired.map((o) => o.id).filter((id) => !keep.has(id));
     if (ids.length === 0) return 0;
     await restockOrders(tx, ids);
     await tx.update(orders).set({ status: "cancelled" }).where(inArray(orders.id, ids));

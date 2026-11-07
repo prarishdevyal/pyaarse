@@ -30,6 +30,14 @@ describe("cashfreeConfig", () => {
     expect(cashfreeConfig({ ...env, CASHFREE_ENV: "Production" })).toMatchObject({ mode: "production", appId: "pa", baseUrl: "https://api.cashfree.com/pg" });
     expect(cashfreeConfig({ ...env, CASHFREE_ENV: "typo" })?.mode).toBe("sandbox");
   });
+
+  it("on the live site, only an explicit CASHFREE_ENV turns payments on", () => {
+    const env = { VERCEL_ENV: "production", CASHFREE_SANDBOX_APP_ID: "sa", CASHFREE_SANDBOX_SECRET_KEY: "ss", CASHFREE_PROD_APP_ID: "pa", CASHFREE_PROD_SECRET_KEY: "ps" };
+    expect(cashfreeConfig(env)).toBeNull();
+    expect(cashfreeConfig({ ...env, CASHFREE_ENV: "prod" })).toBeNull();
+    expect(cashfreeConfig({ ...env, CASHFREE_ENV: "production" })?.mode).toBe("production");
+    expect(cashfreeConfig({ ...env, CASHFREE_ENV: "sandbox" })?.mode).toBe("sandbox");
+  });
 });
 
 describe("verifyWebhookSignature", () => {
