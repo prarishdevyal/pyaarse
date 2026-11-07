@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { HERO_IMAGE_KEY, heroImageUrl } from "@/lib/content-defaults";
 import { getCollections, getProductCards } from "@/lib/catalog";
@@ -32,10 +33,13 @@ export default async function HomePage() {
     <>
       {/* Hero */}
       <section className="relative overflow-hidden bg-blush">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={heroImage}
           alt=""
+          width={1600}
+          height={1000}
+          sizes="(min-width: 768px) 66vw, 100vw"
+          priority
           className="anim-settle block h-72 w-full object-cover object-[60%_45%] [mask-image:linear-gradient(to_bottom,black_70%,transparent)] sm:h-96 md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[66%] md:object-center md:[mask-image:linear-gradient(to_right,transparent,black_35%)]"
         />
         <div className="container-page relative flex flex-col justify-center pb-16 pt-3 md:mt-0 md:min-h-[540px] md:py-16">
@@ -81,8 +85,13 @@ export default async function HomePage() {
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {collections.map((c, i) => (
               <Link key={c.id} href={`/shop?collection=${c.slug}`} className="group relative block aspect-[5/4] overflow-hidden rounded-[14px] shadow-soft">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={c.image ?? `/placeholders/collection-${(i % 4) + 1}.jpg`} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                <Image
+                  src={c.image ?? `/placeholders/collection-${(i % 4) + 1}.jpg`}
+                  alt=""
+                  fill
+                  sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+                  className="object-cover transition duration-500 group-hover:scale-105"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-charcoal/75 via-charcoal/10 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5 text-ivory">
                   <div>

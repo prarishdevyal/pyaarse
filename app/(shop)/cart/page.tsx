@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useSiteText } from "@/components/site-text";
 import { useCart } from "@/components/cart-provider";
@@ -44,7 +45,7 @@ export default function CartPage() {
             return (
               <li key={i.variantId} className="flex gap-4 py-5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={i.image} alt="" className="h-24 w-24 rounded-xl object-cover" />
+                <Image src={i.image} alt="" width={96} height={96} sizes="96px" className="h-24 w-24 rounded-xl object-cover" />
                 <div className="flex flex-1 flex-col">
                   <div className="flex justify-between gap-4">
                     <div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import type { ProductCard as Card } from "@/lib/catalog";
 import { formatINR } from "@/lib/format";
@@ -12,9 +13,14 @@ export function ProductCard({ product }: { product: Card }) {
   return (
     <div className="group card overflow-hidden bg-white/70">
       <div className="relative aspect-square overflow-hidden bg-blush">
-        <Link href={`/product/${product.slug}`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={product.image} alt={product.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+        <Link href={`/product/${product.slug}`} className="absolute inset-0">
+          <Image
+            src={product.image}
+            alt={product.name}
+            fill
+            sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+            className="object-cover transition duration-500 group-hover:scale-105"
+          />
         </Link>
         <button
           onClick={() => toggle(product.id)}

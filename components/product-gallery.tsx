@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "@/components/icons";
 import { slideIndex, stepIndex } from "@/lib/gallery";
@@ -35,8 +36,16 @@ export function ProductGallery({ images, name }: { images: string[]; name: strin
               className="w-full shrink-0 snap-center cursor-zoom-in"
               aria-label={`Open photo ${i + 1} of ${images.length}`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt={i === 0 ? name : ""} className="aspect-square w-full object-cover" draggable={false} loading={i === 0 ? "eager" : "lazy"} />
+              <Image
+                src={src}
+                alt={i === 0 ? name : ""}
+                width={1080}
+                height={1080}
+                sizes="(min-width: 1024px) 50vw, 100vw"
+                className="aspect-square w-full object-cover"
+                draggable={false}
+                priority={i === 0}
+              />
             </button>
           ))}
         </div>
@@ -64,8 +73,7 @@ export function ProductGallery({ images, name }: { images: string[]; name: strin
               aria-current={i === index}
               className={`w-20 shrink-0 overflow-hidden rounded-xl border-2 transition sm:w-24 ${i === index ? "border-brand" : "border-transparent opacity-70 hover:opacity-100"}`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" className="aspect-square w-full object-cover" loading="lazy" />
+              <Image src={src} alt="" width={96} height={96} sizes="96px" className="aspect-square w-full object-cover" />
             </button>
           ))}
         </div>
@@ -144,8 +152,15 @@ function Viewer({ images, name, start, onClose }: { images: string[]; name: stri
             onClick={(e) => e.target === e.currentTarget && dialog.current?.close()}
             className="flex h-full w-full shrink-0 snap-center items-center justify-center p-4 sm:p-12"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt={`${name}, photo ${i + 1}`} className="max-h-full max-w-full rounded-lg object-contain" draggable={false} />
+            <Image
+              src={src}
+              alt={`${name}, photo ${i + 1}`}
+              width={1600}
+              height={1600}
+              sizes="100vw"
+              className="h-auto max-h-full w-auto max-w-full rounded-lg object-contain"
+              draggable={false}
+            />
           </div>
         ))}
       </div>
