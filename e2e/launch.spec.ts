@@ -37,7 +37,7 @@ test("customer places an order", async ({ page }) => {
 
   const add = await openInStockProduct(page);
   await add.click();
-  await expect(page.getByText("Added to your cart.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "View cart", exact: true })).toBeVisible();
 
   await page.goto("/checkout");
   await page.getByLabel("Full name").fill("Launch Test");
@@ -48,11 +48,15 @@ test("customer places an order", async ({ page }) => {
   await page.getByLabel("Pincode").fill("411001");
   await page.getByLabel(/Order notes/).fill("Automated launch check. This order is cancelled automatically.");
   await expect(page.getByText("Total")).toBeVisible();
-  await page.getByRole("button", { name: "Place order" }).click();
+  await page.getByRole("button", { name: /^Place order/ }).click();
 
-  await expect(page).toHaveURL(/\/order-confirmed\?n=PY\d+/, { timeout: 30_000 });
-  orderNumber = new URL(page.url()).searchParams.get("n")!;
-  await expect(page.getByText(orderNumber)).toBeVisible();
+  // With online payment on, the page moves on to Cashfree straight away, so read the number as it passes.
+  await page.waitForURL((url) => {
+    if (url.pathname !== "/order-confirmed") return false;
+    orderNumber = url.searchParams.get("n") ?? "";
+    return true;
+  }, { timeout: 30_000 });
+  expect(orderNumber).toMatch(/^PY\d+$/);
   console.log(`Placed ${orderNumber}`);
   noErrors();
 });

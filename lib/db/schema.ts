@@ -56,6 +56,8 @@ export const orders = pgTable("orders", {
   state: text("state").notNull(),
   pincode: text("pincode").notNull(),
   notes: text("notes").notNull().default(""),
+  /** Private note for the shop team; never shown to the customer. */
+  adminNote: text("admin_note").notNull().default(""),
   subtotal: integer("subtotal").notNull(),
   /** Coupon discount taken off the subtotal. */
   discount: integer("discount").notNull().default(0),
@@ -144,4 +146,33 @@ export const coupons = pgTable("coupons", {
   usedCount: integer("used_count").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+export const PAYMENT_STATUSES = ["created", "paid", "paid_after_cancel"] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+/**
+ * Online payment for an order (one Cashfree order per shop order). An order is marked paid only after
+ * the server has confirmed the payment with Cashfree; nothing the browser sends can do it.
+ */
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id")
+    .notNull()
+    .unique()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull().default("cashfree"),
+  /** Cashfree environment the order was created in: sandbox or production. */
+  mode: text("mode").notNull(),
+  /** Our id for the Cashfree order, e.g. PY1042_k3j9x2a1. */
+  providerOrderId: text("provider_order_id").notNull().unique(),
+  amount: integer("amount").notNull(),
+  status: text("status", { enum: PAYMENT_STATUSES }).notNull().default("created"),
+  /** Cashfree's id for the successful payment. */
+  providerPaymentId: text("provider_payment_id").unique(),
+  /** upi, credit_card, net_banking, … as reported by Cashfree. */
+  method: text("method"),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();

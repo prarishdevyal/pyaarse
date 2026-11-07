@@ -18,7 +18,7 @@ const OTHER = "__other__";
 
 type Prefill = { name: string; email: string; phone: string } | null;
 
-export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote: string }) {
+export function CheckoutForm({ user, paymentNote, payOnline }: { user: Prefill; paymentNote: string; payOnline: boolean }) {
   const router = useRouter();
   const { items, ready, clear } = useCart();
   const [coupon, setCoupon] = useState("");
@@ -55,7 +55,9 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
       const res = await checkout({ ...f, couponCode: quote?.ok && quote.couponCode ? quote.couponCode : "", items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })) });
       if (res.ok) {
         clear();
-        router.push(`/order-confirmed?n=${encodeURIComponent(res.orderNumber)}`);
+        const n = encodeURIComponent(res.orderNumber);
+        // Online payment: the confirmation page opens Cashfree straight away (pay=1).
+        router.push(res.payOnline ? `/order-confirmed?n=${n}&t=${res.payToken}&pay=1` : `/order-confirmed?n=${n}`);
       } else {
         setError(res.error ?? (res.fieldErrors?.items ? res.fieldErrors.items : "Please check the highlighted fields."));
         setFieldErrors(res.fieldErrors ?? {});
@@ -167,7 +169,7 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
         </div>
         {error && <p className="mt-4 text-sm text-brand" role="alert">{error}</p>}
         <button type="submit" className="btn-primary mt-5 w-full" disabled={pending || !quote?.ok}>
-          {pending ? "Placing order…" : "Place order"}
+          {pending ? "Placing order…" : payOnline ? "Place order and pay" : "Place order"}
         </button>
         <p className="mt-3 text-center text-xs text-taupe">
           By placing your order you agree to our{" "}

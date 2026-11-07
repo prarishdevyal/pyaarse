@@ -15,7 +15,8 @@ const discountRow = (o: OrderSummary) =>
     ? `<tr><td style="padding:4px 0">${esc(discountLabel(o))}</td><td style="padding:4px 0;text-align:right;color:#1f8f4e">−${formatINR(o.discount)}</td></tr>`
     : "";
 
-export function buildConfirmationEmail(o: OrderSummary, trackUrl?: string): { subject: string; text: string; html: string } {
+/** With payUrl the customer can pay online; without it the shop sends a UPI QR code on WhatsApp. */
+export function buildConfirmationEmail(o: OrderSummary, trackUrl?: string, payUrl?: string): { subject: string; text: string; html: string } {
   const subject = `Your Pyaarse order ${o.orderNumber} is confirmed`;
   const itemsText = o.items
     .map((i) => `- ${i.productName} (${i.variantName}) x ${i.quantity}: ${formatINR(i.unitPrice * i.quantity)}`)
@@ -37,7 +38,9 @@ export function buildConfirmationEmail(o: OrderSummary, trackUrl?: string): { su
     ``,
     `Shipping to: ${address}`,
     ``,
-    `Next step: we'll message you on WhatsApp at ${o.phone} with a payment QR code. Your order will be prepared once payment is received.`,
+    payUrl
+      ? `Next step: pay ${formatINR(o.total)} securely online (UPI, cards, net banking): ${payUrl}\nYour order will be prepared once payment is received.`
+      : `Next step: we'll message you on WhatsApp at ${o.phone} with a payment QR code. Your order will be prepared once payment is received.`,
     ...(trackUrl ? [``, `Track your order any time: ${trackUrl}`] : []),
     ``,
     `With love,`,
@@ -65,7 +68,10 @@ export function buildConfirmationEmail(o: OrderSummary, trackUrl?: string): { su
     </table>
     <p style="color:#8B817A;font-size:14px">Shipping to: ${esc(address)}</p>
     <div style="background:#F3E7E3;border-radius:12px;padding:16px;margin:24px 0">
-      <strong>Next step:</strong> we'll message you on WhatsApp at ${esc(o.phone)} with a payment QR code. Your order will be prepared once payment is received.
+      ${payUrl
+        ? `<strong>Next step:</strong> pay ${formatINR(o.total)} securely online (UPI, cards, net banking). Your order will be prepared once payment is received.
+      <p style="margin:14px 0 0"><a href="${esc(payUrl)}" style="display:inline-block;background:#89211E;color:#FFFDF6;text-decoration:none;padding:10px 20px;border-radius:999px">Pay ${formatINR(o.total)}</a></p>`
+        : `<strong>Next step:</strong> we'll message you on WhatsApp at ${esc(o.phone)} with a payment QR code. Your order will be prepared once payment is received.`}
     </div>
     ${trackUrl ? `<p><a href="${esc(trackUrl)}" style="color:#89211E">Track your order</a></p>` : ""}
     <p>With love,<br>Pyaarse</p>

@@ -37,6 +37,13 @@ describe("buildConfirmationEmail", () => {
   it("has subject with order number", () => expect(e.subject).toContain("PY1042"));
   it("mentions WhatsApp payment step", () => expect(e.text).toContain("WhatsApp at 9876543210"));
   it("escapes HTML", () => expect(e.html).toContain("Asha &lt;b&gt;"));
+  it("links to online payment when it's on", () => {
+    const pay = buildConfirmationEmail(order, undefined, "https://www.pyaarse.net/order-confirmed?n=PY1042&t=abc");
+    expect(pay.text).toContain("securely online (UPI, cards, net banking)");
+    expect(pay.text).toContain("https://www.pyaarse.net/order-confirmed?n=PY1042&t=abc");
+    expect(pay.html).toContain('href="https://www.pyaarse.net/order-confirmed?n=PY1042&amp;t=abc"');
+    expect(pay.text).not.toContain("QR code");
+  });
 });
 
 describe("emailProvider", () => {
