@@ -5,18 +5,14 @@ import { STORE_TIME_ZONE } from "./format";
 export type InvoiceData = OrderSummary & {
   invoiceDate: Date;
   paid: boolean;
-  /** Unpaid invoices point to the online pay link instead of the WhatsApp QR. */
-  payOnline?: boolean;
   store: { email: string; whatsapp: string; website: string };
 };
 
 /** Wording for a paid invoice vs. one the admin sends before payment. */
-export function invoiceLabels(paid: boolean, payOnline = false) {
-  if (paid) return { status: "Paid", total: "Total paid", note: "" };
-  const note = payOnline
-    ? "Please pay online (UPI, cards or net banking) using the payment link in your order email. Your order is prepared once payment is received."
-    : "Please pay using the payment QR code we send you on WhatsApp. Your order is prepared once payment is received.";
-  return { status: "Payment due", total: "Amount to pay", note };
+export function invoiceLabels(paid: boolean) {
+  return paid
+    ? { status: "Paid", total: "Total paid", note: "" }
+    : { status: "Payment due", total: "Amount to pay", note: "Please pay using the payment QR code we send you on WhatsApp. Your order is prepared once payment is received." };
 }
 
 export const invoiceNumber = (orderNumber: string) => `INV-${orderNumber}`;
@@ -62,7 +58,7 @@ export async function buildInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Pyaarse invoice ${invoiceNumber(d.orderNumber)}`);
   pdf.setAuthor("Pyaarse");
-  const labels = invoiceLabels(d.paid, d.payOnline);
+  const labels = invoiceLabels(d.paid);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const serif = await pdf.embedFont(StandardFonts.TimesRomanItalic);

@@ -14,29 +14,26 @@ import { isOnSale, percentOff } from "@/lib/discounts";
 type Variant = { id: number; name: string; price: number; compareAtPrice: number | null; stock: number };
 
 export function AddToCart({ product, variants }: { product: { id: number; name: string; slug: string; image: string }; variants: Variant[] }) {
-  const { add, items, setQuantity } = useCart();
+  const { add, items } = useCart();
   const t = useSiteText();
   const { has, toggle } = useWishlist();
   const [selectedId, setSelectedId] = useState(variants.find((v) => v.stock > 0)?.id ?? variants[0]?.id);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const [addedCount, setAddedCount] = useState(0);
   const selected = variants.find((v) => v.id === selectedId);
 
   if (!selected) return <p className="mt-6 text-taupe">{t("product.comingSoon")}</p>;
 
   const inCart = items.find((i) => i.variantId === selected.id)?.quantity ?? 0;
-  const limit = Math.min(selected.stock, MAX_QTY_PER_VARIANT);
-  const maxQty = Math.max(0, limit - inCart);
-  // Once this option is in the cart, the counter edits the cart quantity (down to 0 removes it).
-  const shown = inCart > 0 ? inCart : qty;
-  const dec = () => (inCart > 0 ? setQuantity(selected.id, inCart - 1) : setQty((q) => Math.max(1, q - 1)));
-  const inc = () => (inCart > 0 ? setQuantity(selected.id, Math.min(limit, inCart + 1)) : setQty((q) => q + 1));
+  const maxQty = Math.max(0, Math.min(selected.stock, MAX_QTY_PER_VARIANT) - inCart);
 
   function onAdd() {
     if (!selected || qty > maxQty) return;
     add({ variantId: selected.id, productSlug: product.slug, productName: product.name, variantName: selected.name, price: selected.price, image: product.image }, qty);
     setQty(1);
     setAdded(true);
+    setAddedCount((n) => n + 1);
   }
 
   return (
@@ -77,19 +74,13 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <div className="flex items-center rounded-full border border-sand">
-          <button className="step-btn px-4 py-3 disabled:opacity-40" onClick={dec} disabled={inCart === 0 && qty <= 1} aria-label="Decrease">−</button>
-          <AnimatedCount value={shown} className="w-8" />
-          <button className="step-btn px-4 py-3 disabled:opacity-40" onClick={inc} disabled={inCart > 0 ? inCart >= limit : qty >= maxQty} aria-label="Increase">+</button>
+          <button className="step-btn px-4 py-3 disabled:opacity-40" onClick={() => setQty((q) => Math.max(1, q - 1))} disabled={qty <= 1} aria-label="Decrease">−</button>
+          <AnimatedCount value={qty} className="w-8" />
+          <button className="step-btn px-4 py-3 disabled:opacity-40" onClick={() => setQty((q) => q + 1)} disabled={qty >= maxQty} aria-label="Increase">+</button>
         </div>
-        {inCart > 0 ? (
-          <Link href="/cart" className="btn-primary flex-1 text-center sm:flex-none sm:px-12">
-            {t("product.viewCart").replace(/\s*→\s*$/, "")}
-          </Link>
-        ) : (
-          <button className="btn-primary flex-1 sm:flex-none sm:px-12" onClick={onAdd} disabled={maxQty === 0}>
-            {selected.stock === 0 ? t("product.outOfStock") : maxQty === 0 ? t("product.limitReached") : t("product.addToCart")}
-          </button>
-        )}
+        <button className="btn-primary flex-1 sm:flex-none sm:px-12" onClick={onAdd} disabled={maxQty === 0}>
+          {selected.stock === 0 ? t("product.outOfStock") : maxQty === 0 ? t("product.limitReached") : t("product.addToCart")}
+        </button>
         <button
           onClick={() => toggle(product.id)}
           aria-label="Wishlist"
@@ -100,10 +91,11 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
         </button>
       </div>
 
-      {/* Screen readers still hear the confirmation; sighted users see the button change. */}
-      <p className="sr-only" role="status">
-        {added ? t("product.added") : ""}
-      </p>
+      {added && (
+        <p key={addedCount} className="anim-drop mt-4 text-sm" role="status">
+          {t("product.added")} <Link href="/cart" className="text-brand underline">{t("product.viewCart")}</Link>
+        </p>
+      )}
     </div>
   );
 }

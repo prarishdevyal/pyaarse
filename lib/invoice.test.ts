@@ -31,8 +31,6 @@ describe("invoiceLabels", () => {
     expect(invoiceLabels(false)).toMatchObject({ status: "Payment due", total: "Amount to pay" });
     expect(invoiceLabels(false).note).toContain("payment QR");
     expect(invoiceLabels(true)).toEqual({ status: "Paid", total: "Total paid", note: "" });
-    expect(invoiceLabels(false, true).note).toContain("payment link in your order email");
-    expect(invoiceLabels(false, true).note).not.toContain("QR");
   });
 });
 

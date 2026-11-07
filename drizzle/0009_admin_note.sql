@@ -1,1 +1,0 @@
-ALTER TABLE "orders" ADD COLUMN "admin_note" text DEFAULT '' NOT NULL;
