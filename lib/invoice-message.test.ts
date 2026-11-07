@@ -9,4 +9,9 @@ describe("invoiceWhatsAppText", () => {
   it("thanks the customer once paid", () => {
     expect(invoiceWhatsAppText({ customerName: "Asha", orderNumber: "PY1006", total: 1376, paid: true })).toContain("Thank you for your payment of ₹1,376");
   });
+  it("sends the online pay link instead of the QR note when there is one", () => {
+    const t = invoiceWhatsAppText({ customerName: "Asha", orderNumber: "PY1006", total: 1376, paid: false, payUrl: "https://www.pyaarse.net/order-confirmed?n=PY1006&t=x" });
+    expect(t).toContain("pay securely online (UPI, cards or net banking) here: https://www.pyaarse.net/order-confirmed?n=PY1006&t=x");
+    expect(t).not.toContain("QR");
+  });
 });

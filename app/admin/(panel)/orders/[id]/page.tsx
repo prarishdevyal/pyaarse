@@ -13,6 +13,9 @@ import { invoiceWhatsAppText } from "@/lib/invoice-message";
 import { resendInvoice, saveTrackingAction, updateOrderStatus } from "../../../actions";
 import { canShip, delhiveryTrackingUrl } from "@/lib/tracking";
 import { regularPriceFor, saleSavings } from "@/lib/original-price";
+import { getPayment, onlinePaymentsEnabled, reconcilePayment, type Payment } from "@/lib/payments";
+import { payPath } from "@/lib/pay-link";
+import { siteUrl } from "@/lib/hosts";
 import { describePackage, formatWeight, parcelWeight, type PackageInfo } from "@/lib/package";
 
 export default async function AdminOrderPage({
@@ -25,6 +28,9 @@ export default async function AdminOrderPage({
   await requireAdmin();
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();
+  // An online payment that was started: ask Cashfree for its latest state before showing the order.
+  if ((await getPayment(id))?.status === "created") await reconcilePayment(id).catch((e) => console.error("[admin order] payment check", e));
+  const payment = await getPayment(id);
   const order = await db.query.orders.findFirst({ where: eq(schema.orders.id, id) });
   if (!order) notFound();
   const items = await db.select().from(schema.orderItems).where(eq(schema.orderItems.orderId, id));
@@ -55,7 +61,8 @@ export default async function AdminOrderPage({
   const options = ORDER_STATUSES.filter((s) => canChangeStatus(order.status, s));
   const NEXT: Partial<Record<string, string>> = { pending_payment: "paid", paid: "shipped", shipped: "delivered" };
   const suggested = NEXT[order.status] ?? options[0];
-  const waMessage = invoiceWhatsAppText({ customerName: order.customerName, orderNumber: order.orderNumber, total: order.total, paid });
+  const payUrl = order.status === "pending_payment" && onlinePaymentsEnabled() ? `${siteUrl()}${payPath(order.orderNumber)}` : null;
+  const waMessage = invoiceWhatsAppText({ customerName: order.customerName, orderNumber: order.orderNumber, total: order.total, paid, payUrl });
 
   return (
     <div className="space-y-6">
@@ -135,6 +142,7 @@ export default async function AdminOrderPage({
         </div>
 
         <aside className="space-y-4">
+          {(payment || payUrl) && <PaymentPanel payment={payment} payUrl={payUrl} orderPending={order.status === "pending_payment"} />}
           {order.status !== "cancelled" && (
             <div className="card space-y-3 bg-white p-5">
               <div className="flex items-baseline justify-between gap-3">
@@ -227,6 +235,47 @@ export default async function AdminOrderPage({
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+const METHOD_LABELS: Record<string, string> = { upi: "UPI", credit_card: "credit card", debit_card: "debit card", net_banking: "net banking", wallet: "wallet", pay_later: "pay later", cardless_emi: "EMI", credit_card_emi: "card EMI", debit_card_emi: "card EMI" };
+
+/** Online payment details (Cashfree). */
+function PaymentPanel({ payment, payUrl, orderPending }: { payment: Payment | null; payUrl: string | null; orderPending: boolean }) {
+  const method = payment?.method ? METHOD_LABELS[payment.method] ?? payment.method.replace(/_/g, " ") : null;
+  return (
+    <div className="card space-y-2 bg-white p-5 text-sm">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="font-serif text-xl">Online payment</h2>
+        {payment?.mode === "sandbox" && <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">Test mode</span>}
+      </div>
+      {payment?.status === "paid_after_cancel" && (
+        <p className="rounded-lg bg-red-50 p-3 text-red-800" role="alert">
+          The customer paid {formatINR(payment.amount)} after this order was cancelled, and its stock was already released. Refund it from the Cashfree dashboard, or contact the customer.
+        </p>
+      )}
+      {payment && payment.status !== "created" ? (
+        <>
+          <p className="font-medium text-green-800">Paid online{method ? ` by ${method}` : ""}: {formatINR(payment.amount)}</p>
+          {payment.paidAt && <p className="text-taupe">{formatDateTime(payment.paidAt)}</p>}
+          <p className="text-xs text-taupe">Cashfree payment ID: <span className="select-all">{payment.providerPaymentId}</span></p>
+        </>
+      ) : (
+        <p>
+          {!payment
+            ? "The customer hasn't started paying online yet."
+            : orderPending
+              ? "The customer opened the payment page but hasn't paid yet."
+              : "Not paid online. The online checkout was closed when this order was settled here, so the customer can't pay it any more."}
+        </p>
+      )}
+      {payment && <p className="text-xs text-taupe">Cashfree order ID: <span className="select-all">{payment.providerOrderId}</span></p>}
+      {payUrl && (
+        <p className="text-xs text-taupe">
+          Pay link for the customer: <span className="select-all break-all text-charcoal">{payUrl}</span>
+        </p>
+      )}
     </div>
   );
 }

@@ -14,8 +14,11 @@ import { buildInvoicePdf, invoiceNumber } from "./invoice";
 import { couponDiscount, normalizeCode, totalsWithDiscount } from "./discounts";
 
 import { siteUrl } from "./hosts";
+import { reconcileBeforeExpiry } from "./payments";
+import { cashfreeConfig } from "./cashfree";
+import { payPath } from "./pay-link";
 
-const { orders, orderItems, productVariants, products, coupons } = schema;
+const { orders, orderItems, productVariants, products, coupons, payments } = schema;
 
 class CheckoutError extends Error {}
 
@@ -46,6 +49,13 @@ export async function restockOrders(tx: Tx, orderIds: number[]) {
 /** Cancels unpaid orders older than PENDING_ORDER_TTL_HOURS so they stop holding stock. */
 export async function releaseExpiredOrders(now = new Date()): Promise<number> {
   const cutoff = expiryCutoff(now, pendingOrderTtlHours(process.env.PENDING_ORDER_TTL_HOURS));
+  // Orders the customer started paying online: confirm with Cashfree first, so a late confirmation isn't cancelled.
+  const startedOnline = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .innerJoin(payments, eq(payments.orderId, orders.id))
+    .where(and(eq(orders.status, "pending_payment"), lt(orders.createdAt, cutoff), eq(payments.status, "created")));
+  if (startedOnline.length) await reconcileBeforeExpiry(startedOnline.map((o) => o.id));
   return db.transaction(async (tx) => {
     const expired = await tx
       .select({ id: orders.id })
@@ -171,7 +181,9 @@ async function notifyNewOrder(orderId: number, summary: OrderSummary, emailCusto
     sendTelegram(buildTelegramMessage(summary, adminOrderUrl)),
     alertTo ? sendEmail(alertTo, buildAdminOrderEmail(summary, adminOrderUrl)) : Promise.resolve(),
     // The admin can switch customer confirmation emails off in Settings.
-    emailCustomer ? sendEmail(summary.email, buildConfirmationEmail(summary, trackPageUrl(summary.orderNumber))) : Promise.resolve(),
+    emailCustomer
+      ? sendEmail(summary.email, buildConfirmationEmail(summary, trackPageUrl(summary.orderNumber), cashfreeConfig() ? `${siteUrl()}${payPath(summary.orderNumber)}` : undefined))
+      : Promise.resolve(),
   ]);
   for (const r of results) if (r.status === "rejected") console.error("[order notify]", r.reason);
 }
@@ -206,6 +218,7 @@ export async function invoicePdfFor(summary: OrderSummary, paid: boolean, invoic
     ...summary,
     invoiceDate,
     paid,
+    payOnline: cashfreeConfig() !== null,
     store: { email: store.email, whatsapp: store.whatsapp, website: siteUrl().replace(/^https?:\/\//, "") },
   });
 }
@@ -264,6 +277,8 @@ export type TrackedOrder = {
   items: { name: string; quantity: number }[];
   trackingNumber: string | null;
   delhiveryUrl: string | null;
+  /** Link to pay online, for unpaid orders while online payment is on. */
+  payPath: string | null;
 };
 
 /** What a guest may see about their order: no address, phone or email. Null unless the contact matches. */
@@ -283,5 +298,6 @@ export async function findTrackedOrder(orderNumber: string, contact: string): Pr
     items: items.map((i) => ({ name: `${i.productName} (${i.variantName})`, quantity: i.quantity })),
     trackingNumber: order.trackingNumber,
     delhiveryUrl: order.trackingNumber ? delhiveryTrackingUrl(order.trackingNumber) : null,
+    payPath: order.status === "pending_payment" && cashfreeConfig() ? payPath(order.orderNumber) : null,
   };
 }

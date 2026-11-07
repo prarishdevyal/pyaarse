@@ -14,6 +14,7 @@ import { expiryFromDate, toStoredPrices } from "@/lib/discounts";
 import { canChangeStatus, isOrderStatus, shouldRestock } from "@/lib/order-status";
 import { saveSettings as storeSettings } from "@/lib/settings";
 import { restockOrders, saveTracking, sendInvoice } from "@/lib/orders";
+import { closeOnlinePayment } from "@/lib/payments";
 import { isValidAwb, normalizeAwb } from "@/lib/tracking";
 import { removeImages, saveImage } from "@/lib/uploads";
 import { couponSchema, forgotPasswordSchema, inviteAdminSchema, loginSchema, setAdminPasswordSchema, settingsSchema, variantProblems } from "@/lib/validation";
@@ -103,6 +104,8 @@ export async function updateOrderStatus(formData: FormData) {
     await tx.update(orders).set({ status: to }).where(eq(orders.id, id));
     return order.status;
   });
+  // Settled by hand: close the online checkout so the customer can't also pay there.
+  if (from === "pending_payment") await closeOnlinePayment(id);
   // Approving payment sends the customer their invoice.
   if (from === "pending_payment" && to === "paid") redirect(invoiceResultUrl(id, await sendInvoice(id)));
   redirect(`/orders/${id}`);

@@ -48,3 +48,27 @@ describe("hero image", () => {
     expect(r.clear).toEqual([]);
   });
 });
+
+describe("online payment texts", () => {
+  it("swaps in the online version only while online payment is on", () => {
+    const off = contentLookup({});
+    const on = contentLookup({}, { payOnline: true });
+    expect(off("cart.paymentNote")).toContain("QR on WhatsApp");
+    expect(on("cart.paymentNote")).not.toContain("QR");
+    expect(on("cart.paymentNote")).toBe(CONTENT_FIELDS.get("cart.paymentNoteOnline")!.default);
+    expect(on("cart.summary")).toBe(off("cart.summary"));
+  });
+
+  it("uses the admin's edit of the online version, not of the WhatsApp one", () => {
+    const t = contentLookup({ "confirmed.step3": "Pay with the QR we share", "confirmed.step3Online": "Paid online? We pack next." }, { payOnline: true });
+    expect(t("confirmed.step3")).toBe("Paid online? We pack next.");
+  });
+
+  it("no online-payment default mentions the WhatsApp QR", () => {
+    for (const [key, f] of CONTENT_FIELDS) if (key.endsWith("Online")) expect(f.default, key).not.toMatch(/QR/);
+  });
+
+  it("every online version has a WhatsApp version it replaces", () => {
+    for (const key of CONTENT_FIELDS.keys()) if (key.endsWith("Online")) expect(CONTENT_FIELDS.has(key.slice(0, -6)), key).toBe(true);
+  });
+});

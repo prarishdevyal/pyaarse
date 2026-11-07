@@ -12,7 +12,7 @@ export const DEFAULT_PRIVACY = `This policy explains what personal information P
 ## How we use it
 
 - To process, pack and deliver your order.
-- To send you a UPI payment QR and order updates on WhatsApp.
+- To take your payment, and to send you order updates (and, if you pay on WhatsApp, a UPI payment QR).
 - To email you an order confirmation.
 - To answer your questions and handle returns or complaints.
 
@@ -23,16 +23,18 @@ We do not sell your personal information, and we do not use it for advertising.
 We share only what each service needs to do its job:
 
 - **Supabase** stores our database and handles logins.
-- **Resend** sends our order emails.
+- **Zoho Mail** sends our order emails.
+- **Cashfree Payments** processes online payments. It receives your name, email, phone number and the order amount.
 - **Telegram** delivers new-order alerts to our own team.
-- **WhatsApp** carries our payment and order messages to you.
+- **WhatsApp** carries our order messages to you.
+- **Vercel** hosts this website and counts visits anonymously, without cookies.
 - **Courier partners** receive your name, phone number and address to deliver your parcel.
 
 We may also disclose information if the law requires it.
 
 ## Payments
 
-You pay with your own UPI app. We do not receive or store your card, bank or UPI PIN details.
+Online payments (UPI, cards, net banking) are handled by Cashfree Payments, a licensed payment gateway. We only receive confirmation that you paid; we never receive or store your card, bank or UPI PIN details.
 
 ## How long we keep it
 
@@ -66,7 +68,7 @@ export const DEFAULT_TERMS = `These terms apply when you browse pyaarse.net or b
 
 ## Payment
 
-We send a UPI payment QR code to the WhatsApp number you give us. Please pay only through the QR code sent from our official number.
+Pay online with UPI, a debit or credit card, or net banking. Online payments are processed securely by Cashfree Payments; we never see your card or bank details. If we send you a payment link or QR code on WhatsApp, it will only come from our official number.
 
 ## Delivery
 

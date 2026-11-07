@@ -7,6 +7,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { getCurrentUser } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
 import { formatINR, formatDate } from "@/lib/format";
+import { onlinePaymentsEnabled } from "@/lib/payments";
+import { payPath } from "@/lib/pay-link";
 
 export const metadata = { title: "My account" };
 
@@ -56,9 +58,15 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                 ))}
               </ul>
               <p className="mt-3 border-t border-sand/60 pt-3 text-right font-medium">Total {formatINR(o.total)}</p>
-              {o.status === "pending_payment" && (
-                <p className="mt-2 text-sm text-taupe">We&apos;ll send a payment QR to your WhatsApp ({o.phone}) shortly.</p>
-              )}
+              {o.status === "pending_payment" &&
+                (onlinePaymentsEnabled() ? (
+                  <p className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm text-taupe">
+                    <span>Waiting for payment.</span>
+                    <a href={payPath(o.orderNumber)} className="btn-primary px-5 py-1.5">Pay {formatINR(o.total)}</a>
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-taupe">We&apos;ll send a payment QR to your WhatsApp ({o.phone}) shortly.</p>
+                ))}
               {o.trackingNumber && o.status !== "cancelled" && (
                 <p className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-blush px-3 py-2 text-sm">
                   <span>Delhivery AWB <strong>{o.trackingNumber}</strong></span>
