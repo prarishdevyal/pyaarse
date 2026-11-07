@@ -378,8 +378,7 @@ export async function saveSettings(_prev: FormState, formData: FormData): Promis
   const { contactEmail, contactWhatsapp, contactInstagram } = parsed.data;
   const shippingFee = Number(parsed.data.shippingFee);
   const freeShippingThreshold = Number(parsed.data.freeShippingThreshold);
-  const sendOrderEmails = formData.get("sendOrderEmails") === "on";
-  await storeSettings({ shippingFee, freeShippingThreshold, sendOrderEmails, contactEmail, contactWhatsapp, contactInstagram });
+  await storeSettings({ shippingFee, freeShippingThreshold, contactEmail, contactWhatsapp, contactInstagram });
   return { success: "Settings saved." };
 }
 

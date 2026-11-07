@@ -15,71 +15,6 @@ const discountRow = (o: OrderSummary) =>
     ? `<tr><td style="padding:4px 0">${esc(discountLabel(o))}</td><td style="padding:4px 0;text-align:right;color:#1f8f4e">−${formatINR(o.discount)}</td></tr>`
     : "";
 
-/** With payUrl the customer can pay online; without it the shop sends a UPI QR code on WhatsApp. */
-export function buildConfirmationEmail(o: OrderSummary, trackUrl?: string, payUrl?: string): { subject: string; text: string; html: string } {
-  const subject = `Your Pyaarse order ${o.orderNumber} is confirmed`;
-  const itemsText = o.items
-    .map((i) => `- ${i.productName} (${i.variantName}) x ${i.quantity}: ${formatINR(i.unitPrice * i.quantity)}`)
-    .join("\n");
-  const address = `${o.addressLine}, ${o.city}, ${o.state} - ${o.pincode}`;
-  const shippingLabel = o.shipping === 0 ? "Free" : formatINR(o.shipping);
-
-  const text = [
-    `Hi ${o.customerName},`,
-    ``,
-    `Thank you for your order! We've received order ${o.orderNumber}.`,
-    ``,
-    itemsText,
-    ``,
-    `Subtotal: ${formatINR(o.subtotal)}`,
-    ...discountText(o),
-    `Shipping: ${shippingLabel}`,
-    `Total: ${formatINR(o.total)}`,
-    ``,
-    `Shipping to: ${address}`,
-    ``,
-    payUrl
-      ? `Next step: pay ${formatINR(o.total)} securely online (UPI, cards, net banking): ${payUrl}\nYour order will be prepared once payment is received.`
-      : `Next step: we'll message you on WhatsApp at ${o.phone} with a payment QR code. Your order will be prepared once payment is received.`,
-    ...(trackUrl ? [``, `Track your order any time: ${trackUrl}`] : []),
-    ``,
-    `With love,`,
-    `Pyaarse`,
-  ].join("\n");
-
-  const rows = o.items
-    .map(
-      (i) => `<tr>
-        <td style="padding:8px 0;border-bottom:1px solid #D8C6B8">${esc(i.productName)}<br><span style="color:#8B817A;font-size:13px">${esc(i.variantName)} × ${i.quantity}</span></td>
-        <td style="padding:8px 0;border-bottom:1px solid #D8C6B8;text-align:right">${formatINR(i.unitPrice * i.quantity)}</td>
-      </tr>`,
-    )
-    .join("");
-
-  const html = `<!doctype html><html><body style="margin:0;background:#FFFDF6;font-family:Arial,sans-serif;color:#29292A">
-  <div style="max-width:560px;margin:0 auto;padding:32px 24px">
-    <h1 style="font-family:Georgia,serif;font-style:italic;color:#89211E;font-weight:normal;margin:0 0 24px">Pyaarse</h1>
-    <p>Hi ${esc(o.customerName)},</p>
-    <p>Thank you for your order! We've received order <strong>${esc(o.orderNumber)}</strong>.</p>
-    <table style="width:100%;border-collapse:collapse;margin:16px 0">${rows}
-      <tr><td style="padding:8px 0">Subtotal</td><td style="padding:8px 0;text-align:right">${formatINR(o.subtotal)}</td></tr>${discountRow(o)}
-      <tr><td style="padding:4px 0">Shipping</td><td style="padding:4px 0;text-align:right">${shippingLabel}</td></tr>
-      <tr><td style="padding:8px 0;font-weight:bold">Total</td><td style="padding:8px 0;text-align:right;font-weight:bold;color:#89211E">${formatINR(o.total)}</td></tr>
-    </table>
-    <p style="color:#8B817A;font-size:14px">Shipping to: ${esc(address)}</p>
-    <div style="background:#F3E7E3;border-radius:12px;padding:16px;margin:24px 0">
-      ${payUrl
-        ? `<strong>Next step:</strong> pay ${formatINR(o.total)} securely online (UPI, cards, net banking). Your order will be prepared once payment is received.
-      <p style="margin:14px 0 0"><a href="${esc(payUrl)}" style="display:inline-block;background:#89211E;color:#FFFDF6;text-decoration:none;padding:10px 20px;border-radius:999px">Pay ${formatINR(o.total)}</a></p>`
-        : `<strong>Next step:</strong> we'll message you on WhatsApp at ${esc(o.phone)} with a payment QR code. Your order will be prepared once payment is received.`}
-    </div>
-    ${trackUrl ? `<p><a href="${esc(trackUrl)}" style="color:#89211E">Track your order</a></p>` : ""}
-    <p>With love,<br>Pyaarse</p>
-  </div></body></html>`;
-
-  return { subject, text, html };
-}
-
 function itemRows(o: OrderSummary): string {
   return o.items
     .map(
@@ -130,12 +65,12 @@ export function buildInvoiceEmail(o: OrderSummary, invoiceNo: string): { subject
 }
 
 /** New-order alert for the shop's inbox (same details as the Telegram alert). */
-export function buildAdminOrderEmail(o: OrderSummary, adminOrderUrl?: string): { subject: string; text: string; html: string } {
+export function buildAdminOrderEmail(o: OrderSummary, adminOrderUrl?: string, status = "Awaiting payment"): { subject: string; text: string; html: string } {
   const subject = `New order ${o.orderNumber}: ${formatINR(o.total)} from ${o.customerName}`;
   const address = `${o.addressLine}, ${o.city}, ${o.state} - ${o.pincode}`;
   const wa = `https://wa.me/${toWhatsAppNumber(o.phone)}`;
   const text = [
-    `New order ${o.orderNumber} (pending payment)`,
+    `New order ${o.orderNumber} (${status.toLowerCase()})`,
     ``,
     `${o.customerName}`,
     `${o.phone} | ${o.email}`,
@@ -153,7 +88,7 @@ export function buildAdminOrderEmail(o: OrderSummary, adminOrderUrl?: string): {
     ...(adminOrderUrl ? [`Open in admin: ${adminOrderUrl}`] : []),
   ].join("\n");
   const html = page(`<p style="font-size:18px;margin:0 0 4px"><strong>New order ${esc(o.orderNumber)}</strong></p>
-    <p style="color:#8B817A;margin:0 0 16px">Pending payment</p>
+    <p style="color:#8B817A;margin:0 0 16px">${esc(status)}</p>
     <p style="margin:0"><strong>${esc(o.customerName)}</strong><br>${esc(o.phone)} · ${esc(o.email)}<br>${esc(address)}</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0">${itemRows(o)}${totalRows(o)}</table>
     ${o.notes ? `<p style="white-space:pre-line"><strong>Notes:</strong> ${esc(o.notes)}</p>` : ""}

@@ -7,5 +7,5 @@ export function invoiceWhatsAppText(o: { customerName: string; orderNumber: stri
   const intro = `Hi ${first}, thank you for your Pyaarse order ${o.orderNumber}! Here is your invoice. The amount to pay is ${formatINR(o.total)}.`;
   return o.payUrl
     ? `${intro} You can pay securely online (UPI, cards or net banking) here: ${o.payUrl}`
-    : `${intro} Please scan the QR code below to pay.`;
+    : `${intro} Reply here and we'll send you the link to pay online.`;
 }

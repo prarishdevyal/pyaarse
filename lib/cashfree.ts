@@ -119,6 +119,7 @@ export type CashfreeOrder = {
   order_currency: string;
   order_status: CashfreeOrderStatus;
   payment_session_id?: string;
+  order_expiry_time?: string;
 };
 export type CashfreePayment = {
   cf_payment_id: string | number;

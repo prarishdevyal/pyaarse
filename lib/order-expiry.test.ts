@@ -1,32 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { canStartPayment, DEFAULT_PENDING_ORDER_TTL_HOURS, expiryCutoff, paymentDeadline, pendingOrderTtlHours } from "./order-expiry";
+import { canStartPayment, CHECKOUT_OPEN_MS, checkoutExpiry, formatCountdown, isOverdue, PAY_WINDOW_MS, payWindowEnd } from "./order-expiry";
 
-describe("order expiry", () => {
-  it("parses the TTL with a safe default", () => {
-    expect(pendingOrderTtlHours(undefined)).toBe(DEFAULT_PENDING_ORDER_TTL_HOURS);
-    expect(pendingOrderTtlHours("abc")).toBe(DEFAULT_PENDING_ORDER_TTL_HOURS);
-    expect(pendingOrderTtlHours("0")).toBe(DEFAULT_PENDING_ORDER_TTL_HOURS);
-    expect(pendingOrderTtlHours("24")).toBe(24);
+const now = new Date("2026-11-07T10:00:00Z");
+
+describe("order hold", () => {
+  it("gives 5 minutes to pay", () => {
+    expect(PAY_WINDOW_MS).toBe(5 * 60_000);
+    expect(payWindowEnd(now).toISOString()).toBe("2026-11-07T10:05:00.000Z");
   });
-  it("computes the cutoff", () => {
-    expect(expiryCutoff(new Date("2026-11-05T12:00:00Z"), 48).toISOString()).toBe("2026-11-03T12:00:00.000Z");
+  it("keeps Cashfree's payment page open longer than its 15-minute minimum", () => {
+    expect(CHECKOUT_OPEN_MS).toBeGreaterThan(15 * 60_000);
+    expect(checkoutExpiry(now).toISOString()).toBe("2026-11-07T10:16:00.000Z");
+  });
+  it("refuses to start a payment in the last seconds of the hold", () => {
+    const payBy = payWindowEnd(now);
+    expect(canStartPayment(payBy, new Date(payBy.getTime() - 60_000))).toBe(true);
+    expect(canStartPayment(payBy, new Date(payBy.getTime() - 2_000))).toBe(false);
+    expect(canStartPayment(payBy, new Date(payBy.getTime() + 1))).toBe(false);
+  });
+  it("is overdue exactly when the hold has passed", () => {
+    const payBy = payWindowEnd(now);
+    expect(isOverdue(payBy, new Date(payBy.getTime() - 1))).toBe(false);
+    expect(isOverdue(payBy, payBy)).toBe(true);
   });
 });
 
-describe("online payment window", () => {
-  const created = new Date("2026-11-07T10:00:00Z");
-
-  it("closes an hour before the order is auto-cancelled", () => {
-    expect(paymentDeadline(created, 24).toISOString()).toBe("2026-11-08T09:00:00.000Z");
+describe("formatCountdown", () => {
+  it("shows minutes and seconds", () => {
+    expect(formatCountdown(PAY_WINDOW_MS)).toBe("5:00");
+    expect(formatCountdown(61_000)).toBe("1:01");
+    expect(formatCountdown(9_500)).toBe("0:10");
   });
-
-  it("keeps a window for very short limits", () => {
-    expect(paymentDeadline(created, 1).toISOString()).toBe("2026-11-07T10:45:00.000Z");
-  });
-
-  it("needs at least 20 minutes left to start paying", () => {
-    const deadline = paymentDeadline(created, 24);
-    expect(canStartPayment(deadline, new Date("2026-11-08T08:30:00Z"))).toBe(true);
-    expect(canStartPayment(deadline, new Date("2026-11-08T08:45:00Z"))).toBe(false);
-  });
+  it("never goes below zero", () => expect(formatCountdown(-3_000)).toBe("0:00"));
 });

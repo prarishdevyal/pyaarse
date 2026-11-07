@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildContactTelegramMessage, buildTelegramMessage } from "./telegram";
-import { buildShippedEmail, buildPasswordResetEmail, buildAdminAddedEmail, buildAdminInviteEmail, buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, emailProvider, mailFrom, orderAlertEmail, smtpOptions } from "./email";
+import { buildShippedEmail, buildPasswordResetEmail, buildAdminAddedEmail, buildAdminInviteEmail, buildAdminOrderEmail, buildInvoiceEmail, emailProvider, mailFrom, orderAlertEmail, smtpOptions } from "./email";
 import type { OrderSummary } from "./types";
 
 const order: OrderSummary = {
@@ -30,20 +30,6 @@ describe("buildTelegramMessage", () => {
     expect(buildTelegramMessage({ ...order, customerName: 'a"b' })).toContain("a&quot;b");
   });
   it("shows free shipping", () => expect(buildTelegramMessage({ ...order, shipping: 0 })).toContain("Shipping: Free"));
-});
-
-describe("buildConfirmationEmail", () => {
-  const e = buildConfirmationEmail(order);
-  it("has subject with order number", () => expect(e.subject).toContain("PY1042"));
-  it("mentions WhatsApp payment step", () => expect(e.text).toContain("WhatsApp at 9876543210"));
-  it("escapes HTML", () => expect(e.html).toContain("Asha &lt;b&gt;"));
-  it("links to online payment when it's on", () => {
-    const pay = buildConfirmationEmail(order, undefined, "https://www.pyaarse.net/order-confirmed?n=PY1042&t=abc");
-    expect(pay.text).toContain("securely online (UPI, cards, net banking)");
-    expect(pay.text).toContain("https://www.pyaarse.net/order-confirmed?n=PY1042&t=abc");
-    expect(pay.html).toContain('href="https://www.pyaarse.net/order-confirmed?n=PY1042&amp;t=abc"');
-    expect(pay.text).not.toContain("QR code");
-  });
 });
 
 describe("emailProvider", () => {
@@ -77,6 +63,18 @@ describe("buildContactTelegramMessage", () => {
     expect(msg).toContain("&lt;b&gt;hi&lt;/b&gt; &amp; bye");
     expect(msg).toContain("a@b.co · 9876543210");
     expect(msg).toContain("https://admin.x/messages");
+  });
+});
+
+describe("order alert status", () => {
+  it("says awaiting payment by default", () => {
+    expect(buildTelegramMessage(order)).toContain("Status: Awaiting payment");
+    expect(buildAdminOrderEmail(order).text).toContain("(awaiting payment)");
+  });
+  it("shows the paid status when the alert is sent after an online payment", () => {
+    const status = "Paid online ₹1,077 by upi. Invoice emailed to the customer.";
+    expect(buildTelegramMessage(order, undefined, status)).toContain(`Status: ${status}`);
+    expect(buildAdminOrderEmail(order, undefined, status).html).toContain(status);
   });
 });
 
@@ -130,14 +128,12 @@ describe("admin invite emails", () => {
 
 describe("discounts in notifications", () => {
   const discounted = { ...order, discount: 100, couponCode: "DIWALI10", total: 977 };
-  it("shows the coupon and amount off in emails and Telegram", () => {
-    expect(buildConfirmationEmail(discounted).text).toContain("Discount (DIWALI10): -₹100");
-    expect(buildConfirmationEmail(discounted).html).toContain("−₹100");
+  it("shows the coupon and amount off in the shop alerts", () => {
     expect(buildAdminOrderEmail(discounted).text).toContain("Discount (DIWALI10): -₹100");
     expect(buildTelegramMessage(discounted)).toContain("Discount (DIWALI10): -₹100");
   });
   it("leaves the line out when there's no discount", () => {
-    expect(buildConfirmationEmail(order).text).not.toContain("Discount");
+    expect(buildAdminOrderEmail(order).text).not.toContain("Discount");
     expect(buildTelegramMessage(order)).not.toContain("Discount");
   });
 });
@@ -154,10 +150,6 @@ describe("buildPasswordResetEmail", () => {
 });
 
 describe("tracking emails", () => {
-  it("adds a track link to the order confirmation when given", () => {
-    expect(buildConfirmationEmail(order, "https://www.pyaarse.net/track?n=PY1042").text).toContain("Track your order any time: https://www.pyaarse.net/track?n=PY1042");
-    expect(buildConfirmationEmail(order).text).not.toContain("Track your order");
-  });
   it("tells the customer the order shipped, with the AWB and both links", () => {
     const e = buildShippedEmail(order, "1234567890123", "https://www.delhivery.com/track-v2/package/1234567890123", "https://www.pyaarse.net/track?n=PY1042");
     expect(e.subject).toBe("Your Pyaarse order PY1042 is on its way");

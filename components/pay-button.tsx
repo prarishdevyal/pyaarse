@@ -43,7 +43,7 @@ export function PayButton({ orderNumber, token, label, autoStart = false }: { or
     start(async () => {
       const res = await payForOrder(orderNumber, token);
       if (!res.ok) {
-        if (res.paid) router.refresh();
+        if (res.paid || res.closed) router.refresh();
         else setError(res.error);
         return;
       }

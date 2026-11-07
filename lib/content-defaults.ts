@@ -78,10 +78,8 @@ export const CONTENT_GROUPS: ContentGroup[] = [
       line("home.steps.title", "Heading", "How ordering works"),
       line("home.steps.1.title", "Step 1", "Place your order"),
       text("home.steps.1.text", "Step 1 detail", "Pick your candles and check out. You don't need an account."),
-      line("home.steps.2.title", "Step 2 (pay on WhatsApp)", "Pay on WhatsApp"),
-      line("home.steps.2.titleOnline", "Step 2 (online payment)", "Pay securely online"),
-      text("home.steps.2.text", "Step 2 detail (pay on WhatsApp)", "We send a UPI QR code to your WhatsApp. Pay from any UPI app."),
-      text("home.steps.2.textOnline", "Step 2 detail (online payment)", "Pay right after checkout with UPI, cards or net banking. Payments are handled securely by Cashfree."),
+      line("home.steps.2.titleOnline", "Step 2", "Pay securely online"),
+      text("home.steps.2.textOnline", "Step 2 detail", "Pay right after checkout with UPI, cards or net banking. Payments are handled securely by Cashfree."),
       line("home.steps.3.title", "Step 3", "We pack and ship"),
       text("home.steps.3.text", "Step 3 detail", "Once payment is in, we pack your order with care and share the tracking details."),
     ],
@@ -114,10 +112,9 @@ export const CONTENT_GROUPS: ContentGroup[] = [
     fields: [
       line("home.faq.title", "Heading", "Questions, answered"),
       line("home.faq.1.q", "Question 1", "How do I pay?"),
-      text("home.faq.1.a", "Answer 1 (pay on WhatsApp)", "After you place your order, we send a UPI QR code to your WhatsApp number. Scan it with any UPI app to pay."),
-      text("home.faq.1.aOnline", "Answer 1 (online payment)", "Right after you place your order, you pay securely online with UPI, a debit or credit card, or net banking. Payments are handled by Cashfree, so we never see your card or bank details."),
+      text("home.faq.1.aOnline", "Answer 1", "Right after you place your order, you pay securely online with UPI, a debit or credit card, or net banking. Payments are handled by Cashfree, so we never see your card or bank details."),
       line("home.faq.2.q", "Question 2", "What if I don't pay straight away?"),
-      text("home.faq.2.a", "Answer 2", "We hold your candles for 24 hours, so please complete your payment within that time. Unpaid orders are cancelled after that so the stock is free for others."),
+      text("home.faq.2.aOnline", "Answer 2", "Your order is placed once your payment goes through. If a payment fails, we hold your candles for 5 minutes so you can try again; after that they go back on sale."),
       line("home.faq.3.q", "Question 3", "How do I care for my candle?"),
       text("home.faq.3.a", "Answer 3", "On the first burn, let the wax melt to the edges of the jar. Trim the wick to about 5 mm before each use, and never leave a burning candle unattended."),
       line("home.faq.4.q", "Question 4", "Do you make custom or bulk orders?"),
@@ -180,8 +177,7 @@ export const CONTENT_GROUPS: ContentGroup[] = [
       line("cart.empty.cta", "Empty cart button", "Shop candles"),
       line("cart.summary", "Order summary heading", "Order summary"),
       line("cart.checkout", "Checkout button", "Proceed to checkout"),
-      text("cart.paymentNote", "Note under the checkout button (pay on WhatsApp)", "Payment via UPI QR on WhatsApp after you place your order."),
-      text("cart.paymentNoteOnline", "Note under the checkout button (online payment)", "Pay securely online with UPI, cards or net banking after you place your order."),
+      text("cart.paymentNoteOnline", "Note under the checkout button", "Pay securely online with UPI, cards or net banking after you place your order."),
       line("wishlist.title", "Wishlist heading", "Your Wishlist"),
       line("wishlist.empty", "Empty wishlist text", "Tap the heart on any candle to save it here."),
       line("wishlist.cta", "Empty wishlist button", "Browse candles"),
@@ -225,15 +221,8 @@ export const CONTENT_GROUPS: ContentGroup[] = [
     title: "Checkout & order confirmation",
     fields: [
       line("checkout.title", "Checkout heading", "Checkout"),
-      text("checkout.paymentNote", "Payment note at checkout (pay on WhatsApp)", "After you place your order, we'll send you a UPI payment QR on WhatsApp."),
-      text("checkout.paymentNoteOnline", "Payment note at checkout (online payment)", "After you place your order, you'll pay securely with UPI, cards or net banking through Cashfree."),
+      text("checkout.paymentNoteOnline", "Payment note at checkout", "After you place your order, you'll pay securely with UPI, cards or net banking through Cashfree."),
       line("confirmed.title", "Order confirmation heading", "Thank you for your order!"),
-      line("confirmed.next", "“What happens next” heading", "What happens next?"),
-      line("confirmed.step1", "Next step 1", "We've emailed you an order confirmation."),
-      line("confirmed.step2", "Next step 2 (pay on WhatsApp)", "We'll message you on WhatsApp with a UPI payment QR code."),
-      line("confirmed.step2Online", "Next step 2 (online payment)", "Pay securely online with UPI, cards or net banking."),
-      line("confirmed.step3Online", "Next step 3 (online payment)", "Once payment is received, we'll lovingly pack and ship your candles. Unpaid orders are cancelled automatically after 24 hours."),
-      line("confirmed.step3", "Next step 3 (pay on WhatsApp)", "Once payment is received, we'll lovingly pack and ship your candles."),
       line("confirmed.cta", "Button", "Continue shopping"),
     ],
   },
@@ -254,20 +243,21 @@ export const MAX_LENGTH: Record<ContentKind, number> = { line: 200, text: 1000, 
 
 export type SiteContent = (key: string) => string;
 
-/** Suffix of the text used instead of a key while online payment is on, e.g. cart.paymentNoteOnline. */
+/**
+ * Payment texts live under keys ending in "Online" (e.g. cart.paymentNoteOnline). The shop used to take payment on
+ * WhatsApp under the plain keys; those were retired, and new keys mean old WhatsApp wording saved by the admin
+ * can never come back. Code keeps asking for the plain key and gets the "Online" text.
+ */
 export const ONLINE_SUFFIX = "Online";
 
-/**
- * Builds a lookup that returns the admin's override, else the default. With online payment on, a key
- * that has an "(online payment)" version (key + "Online") returns that version instead.
- */
-export function contentLookup(overrides: Record<string, string>, opts: { payOnline?: boolean } = {}): SiteContent {
+/** Builds a lookup that returns the admin's override, else the default. */
+export function contentLookup(overrides: Record<string, string>): SiteContent {
   const plain = (key: string) => {
     const v = overrides[key];
     if (v !== undefined && v.trim() !== "") return v;
     return CONTENT_FIELDS.get(key)?.default ?? "";
   };
-  return (key) => (opts.payOnline && CONTENT_FIELDS.has(key + ONLINE_SUFFIX) ? plain(key + ONLINE_SUFFIX) : plain(key));
+  return (key) => (CONTENT_FIELDS.has(key + ONLINE_SUFFIX) ? plain(key + ONLINE_SUFFIX) : plain(key));
 }
 
 /** Validates an admin edit. Unknown keys are dropped; empty values clear the override. */

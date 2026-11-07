@@ -17,7 +17,7 @@ import { safeNext } from "@/lib/redirect";
 import { siteUrl } from "@/lib/hosts";
 import { clientIp, limits, TOO_MANY } from "@/lib/limits";
 import { checkPayToken, payToken } from "@/lib/pay-link";
-import { onlinePaymentsEnabled, startPayment, type StartPaymentResult } from "@/lib/payments";
+import { startPayment, type StartPaymentResult } from "@/lib/payments";
 
 export type FormState = { error?: string; success?: string; fieldErrors?: Record<string, string> } | undefined;
 
@@ -74,7 +74,7 @@ export async function quoteCart(input: CartLine[], couponCode = "") {
 
 export async function checkout(
   input: unknown,
-): Promise<{ ok: true; orderNumber: string; payToken: string; payOnline: boolean } | { ok: false; error?: string; fieldErrors?: Record<string, string> }> {
+): Promise<{ ok: true; orderNumber: string; payToken: string } | { ok: false; error?: string; fieldErrors?: Record<string, string> }> {
   const parsed = checkoutSchema.safeParse(input);
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrors(parsed.error.issues) };
   const ipOk = await limits.checkoutByIp.hit(await clientIp());
@@ -82,7 +82,7 @@ export async function checkout(
   const user = await getCurrentUser();
   const result = await placeOrder(parsed.data, user?.id ?? null);
   if (!result.ok) return { ok: false, error: result.error };
-  return { ok: true, orderNumber: result.orderNumber, payToken: payToken(result.orderNumber), payOnline: onlinePaymentsEnabled() };
+  return { ok: true, orderNumber: result.orderNumber, payToken: payToken(result.orderNumber) };
 }
 
 // ---------- Online payment ----------
@@ -90,7 +90,7 @@ export async function checkout(
 /** Opens the Cashfree checkout for an unpaid order. Needs the order's pay-link token, not just its number. */
 export async function payForOrder(orderNumber: string, token: string): Promise<StartPaymentResult> {
   if (typeof orderNumber !== "string" || !/^PY\d{1,9}$/.test(orderNumber) || !checkPayToken(orderNumber, token)) {
-    return { ok: false, error: "This payment link isn't valid. Open it again from your order email." };
+    return { ok: false, error: "This payment link isn't valid. Open it again from the Track page." };
   }
   const ipOk = await limits.payByIp.hit(await clientIp());
   if (!ipOk || !await limits.payByOrder.hit(orderNumber)) return { ok: false, error: TOO_MANY };

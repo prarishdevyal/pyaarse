@@ -47,15 +47,12 @@ export function TrackForm({ orderNumber }: { orderNumber: string }) {
             </ol>
           )}
 
-          {o.status === "pending_payment" &&
-            (o.payPath ? (
-              <div className="mt-5">
-                <p className="text-sm text-charcoal/80">This order is waiting for payment. It&apos;s prepared once payment is received.</p>
-                <Link href={o.payPath} className="btn-primary mt-3">Pay now</Link>
-              </div>
-            ) : (
-              <p className="mt-5 text-sm text-charcoal/80">We&apos;ll send a UPI payment QR code on WhatsApp. Your order is prepared once payment is received.</p>
-            ))}
+          {o.status === "pending_payment" && o.payPath && (
+            <div className="mt-5">
+              <p className="text-sm text-charcoal/80">This order is waiting for payment. It&apos;s placed once payment goes through.</p>
+              <Link href={o.payPath} className="btn-primary mt-3">Pay now</Link>
+            </div>
+          )}
 
           {o.trackingNumber && o.delhiveryUrl && (
             <div className="mt-6 rounded-xl bg-blush p-4">

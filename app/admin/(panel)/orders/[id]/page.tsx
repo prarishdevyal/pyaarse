@@ -14,7 +14,7 @@ import { resendInvoice, saveAdminNoteAction, saveTrackingAction, updateOrderStat
 import { ADMIN_NOTE_MAX } from "@/lib/order-note";
 import { canShip, delhiveryTrackingUrl } from "@/lib/tracking";
 import { regularPriceFor, saleSavings } from "@/lib/original-price";
-import { getPayment, onlinePaymentsEnabled, reconcilePayment, type Payment } from "@/lib/payments";
+import { getPayment, reconcilePayment, type Payment } from "@/lib/payments";
 import { payPath } from "@/lib/pay-link";
 import { siteUrl } from "@/lib/hosts";
 import { describePackage, formatWeight, parcelWeight, type PackageInfo } from "@/lib/package";
@@ -62,7 +62,7 @@ export default async function AdminOrderPage({
   const options = ORDER_STATUSES.filter((s) => canChangeStatus(order.status, s));
   const NEXT: Partial<Record<string, string>> = { pending_payment: "paid", paid: "shipped", shipped: "delivered" };
   const suggested = NEXT[order.status] ?? options[0];
-  const payUrl = order.status === "pending_payment" && onlinePaymentsEnabled() ? `${siteUrl()}${payPath(order.orderNumber)}` : null;
+  const payUrl = order.status === "pending_payment" ? `${siteUrl()}${payPath(order.orderNumber)}` : null;
   const waMessage = invoiceWhatsAppText({ customerName: order.customerName, orderNumber: order.orderNumber, total: order.total, paid, payUrl });
 
   return (

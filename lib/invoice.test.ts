@@ -29,10 +29,9 @@ describe("invoice helpers", () => {
 describe("invoiceLabels", () => {
   it("shows the amount to pay before payment and 'paid' after", () => {
     expect(invoiceLabels(false)).toMatchObject({ status: "Payment due", total: "Amount to pay" });
-    expect(invoiceLabels(false).note).toContain("payment QR");
+    expect(invoiceLabels(false).note).toContain("pay online");
+    expect(invoiceLabels(false).note).not.toMatch(/QR|WhatsApp/);
     expect(invoiceLabels(true)).toEqual({ status: "Paid", total: "Total paid", note: "" });
-    expect(invoiceLabels(false, true).note).toContain("payment link in your order email");
-    expect(invoiceLabels(false, true).note).not.toContain("QR");
   });
 });
 

@@ -6,7 +6,7 @@ import { settingsSchema } from "@/lib/validation";
 import { useValidation } from "@/components/use-validation";
 import { FormField, invalidProps } from "@/components/form-field";
 
-type Initial = { shippingFee: number; freeShippingThreshold: number; sendOrderEmails: boolean; contactEmail: string; contactWhatsapp: string; contactInstagram: string };
+type Initial = { shippingFee: number; freeShippingThreshold: number; contactEmail: string; contactWhatsapp: string; contactInstagram: string };
 
 export function SettingsForm({ initial }: { initial: Initial }) {
   const [state, action, pending] = useActionState(saveSettings, undefined);
@@ -40,21 +40,6 @@ export function SettingsForm({ initial }: { initial: Initial }) {
             <input id="contactInstagram" name="contactInstagram" className="input" placeholder="pyaarse_net" defaultValue={initial.contactInstagram} {...v.bind} {...invalidProps("contactInstagram", v.error("contactInstagram"))} />
           </FormField>
         </div>
-      </section>
-
-      <section className="space-y-2 border-t border-sand/60 pt-5">
-        <h2 className="font-serif text-2xl">Emails</h2>
-        <label className="flex cursor-pointer items-center justify-between gap-4">
-          <span>
-            <span className="block font-medium">Send order confirmation emails</span>
-            <span className="text-xs text-taupe">When off, customers get no email; you still get the Telegram alert.</span>
-          </span>
-          <input type="checkbox" name="sendOrderEmails" defaultChecked={initial.sendOrderEmails} className="peer sr-only" />
-          <span
-            aria-hidden
-            className="relative h-6 w-11 shrink-0 rounded-full bg-sand transition peer-checked:bg-brand peer-focus-visible:ring-2 peer-focus-visible:ring-brand/40 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-5"
-          />
-        </label>
       </section>
 
       {state?.error && <p className="text-sm text-brand">{state.error}</p>}

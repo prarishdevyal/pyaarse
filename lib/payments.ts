@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { db, schema } from "./db";
 import {
   CashfreeError,
@@ -12,13 +12,13 @@ import {
   type CashfreeMode,
   type CashfreeOrder,
 } from "./cashfree";
-import { canStartPayment, paymentDeadline, pendingOrderTtlHours } from "./order-expiry";
+import { canStartPayment, checkoutExpiry, isOverdue, payWindowEnd } from "./order-expiry";
 import { siteUrl } from "./hosts";
 import { payPath } from "./pay-link";
 import { formatINR } from "./format";
 import { sendTelegram } from "./notify/telegram";
 import { orderAlertEmail, sendEmail } from "./notify/email";
-import { sendInvoice } from "./orders";
+import { alertNewOrder, getOrderSummary, releaseExpiredOrders, sendInvoice } from "./orders";
 
 const { orders, payments } = schema;
 type Order = typeof orders.$inferSelect;
@@ -34,7 +34,6 @@ function gateway() {
 /** Online payment is on once the key pair for CASHFREE_ENV is filled in. */
 export const onlinePaymentsEnabled = () => cashfreeConfig() !== null;
 
-const ttlHours = () => pendingOrderTtlHours(process.env.PENDING_ORDER_TTL_HOURS);
 
 /** A Cashfree order, or null if Cashfree has never heard of it. */
 async function findCashfreeOrder(api: CashfreeClient, id: string): Promise<CashfreeOrder | null> {
@@ -62,9 +61,32 @@ async function paymentRow(order: Order, mode: CashfreeMode): Promise<Payment> {
 
 export type StartPaymentResult =
   | { ok: true; sessionId: string; mode: CashfreeMode }
-  | { ok: false; error: string; paid?: boolean };
+  | { ok: false; error: string; paid?: boolean; closed?: boolean };
 
-const CONTACT_US = "Please message us on WhatsApp and we'll help you pay.";
+const CONTACT_US = "If you need help, message us.";
+
+/** A payment page that closes within this time isn't reused for a new attempt: the customer gets a fresh one. */
+const MIN_REUSE_MS = 6 * 60_000;
+
+/** Starts a new Cashfree order for the same shop order (the old one is closed for good: terminated or expired). */
+async function newAttempt(row: Payment, orderNumber: string): Promise<Payment> {
+  const [next] = await db
+    .update(payments)
+    .set({ providerOrderId: providerOrderIdFor(orderNumber), updatedAt: new Date() })
+    .where(and(eq(payments.id, row.id), eq(payments.status, "created")))
+    .returning();
+  return next ?? row;
+}
+
+/** Keeps the order held while Cashfree's payment page is open. False if the order is no longer awaiting payment. */
+async function holdUntil(orderId: number, until: Date): Promise<boolean> {
+  const held = await db
+    .update(orders)
+    .set({ payBy: until })
+    .where(and(eq(orders.id, orderId), eq(orders.status, "pending_payment")))
+    .returning({ id: orders.id });
+  return held.length > 0;
+}
 
 /** Opens (or reopens) the Cashfree checkout for an unpaid order. The amount always comes from our database. */
 export async function startPayment(orderNumber: string): Promise<StartPaymentResult> {
@@ -72,17 +94,28 @@ export async function startPayment(orderNumber: string): Promise<StartPaymentRes
   if (!gw) return { ok: false, error: `Online payment isn't available right now. ${CONTACT_US}` };
   const [order] = await db.select().from(orders).where(eq(orders.orderNumber, orderNumber));
   if (!order) return { ok: false, error: "We couldn't find that order." };
-  if (order.status === "cancelled") return { ok: false, error: `This order was cancelled, so it can't be paid. ${CONTACT_US}` };
+  if (order.status === "cancelled") return { ok: false, closed: true, error: "This order was cancelled, so it can't be paid." };
   if (order.status !== "pending_payment") return { ok: false, paid: true, error: "This order is already paid." };
-
-  const deadline = paymentDeadline(order.createdAt, ttlHours());
-  if (!canStartPayment(deadline, new Date())) return { ok: false, error: `The time to pay for this order has run out. ${CONTACT_US}` };
+  if (!canStartPayment(order.payBy, new Date())) return { ok: false, closed: true, error: "The time to pay for this order has run out." };
 
   try {
-    const row = await paymentRow(order, gw.config.mode);
+    let row = await paymentRow(order, gw.config.mode);
     if (row.status !== "created") return { ok: false, paid: true, error: "This order is already paid." };
     let cf = await findCashfreeOrder(gw.api, row.providerOrderId);
+    // Reuse an open payment page only if it stays open long enough to pay; otherwise close it and start fresh.
+    if (cf?.order_status === "ACTIVE" && cf.order_expiry_time && Date.parse(cf.order_expiry_time) - Date.now() < MIN_REUSE_MS) {
+      cf = await gw.api.terminateOrder(row.providerOrderId);
+    }
+    if (cf?.order_status === "TERMINATION_REQUESTED") return { ok: false, error: "Your last payment attempt is still being checked. Please wait a minute and try again." };
+    // A closed payment page (expired, or stopped after a failed payment) can't take money any more: open a new one.
+    if (cf && (cf.order_status === "TERMINATED" || cf.order_status === "EXPIRED")) {
+      row = await newAttempt(row, order.orderNumber);
+      cf = null;
+    }
     if (!cf) {
+      const expiresAt = checkoutExpiry(new Date());
+      // Hold the candles for as long as the payment page stays open.
+      if (!(await holdUntil(order.id, expiresAt))) return { ok: false, closed: true, error: "This order is no longer awaiting payment." };
       const site = siteUrl();
       const input = {
         providerOrderId: row.providerOrderId,
@@ -93,7 +126,7 @@ export async function startPayment(orderNumber: string): Promise<StartPaymentRes
         phone: order.phone,
         returnUrl: `${site}${payPath(order.orderNumber)}`,
         notifyUrl: `${site}${WEBHOOK_PATH}`,
-        expiresAt: deadline,
+        expiresAt,
       };
       try {
         cf = await gw.api.createOrder(input);
@@ -107,13 +140,18 @@ export async function startPayment(orderNumber: string): Promise<StartPaymentRes
       await reconcilePayment(order.id);
       return { ok: false, paid: true, error: "This order is already paid." };
     }
-    if (cf.order_status !== "ACTIVE" || !cf.payment_session_id) return { ok: false, error: `This payment link has expired. ${CONTACT_US}` };
+    if (cf.order_status !== "ACTIVE" || !cf.payment_session_id) return { ok: false, error: `We couldn't open the payment page. Please try again. ${CONTACT_US}` };
+    // Reusing an open payment page: keep the order held until that page closes.
+    if (cf.order_expiry_time && !Number.isNaN(Date.parse(cf.order_expiry_time))) {
+      const until = new Date(Date.parse(cf.order_expiry_time));
+      if (until > order.payBy) await holdUntil(order.id, until);
+    }
     // The admin may have marked the order paid or cancelled while we were talking to Cashfree.
     const [now] = await db.select({ status: orders.status }).from(orders).where(eq(orders.id, order.id));
     if (now.status !== "pending_payment") {
       await gw.api.terminateOrder(row.providerOrderId).catch((e) => console.error("[payments] terminate", e instanceof Error ? e.message : e));
       return now.status === "cancelled"
-        ? { ok: false, error: `This order was cancelled, so it can't be paid. ${CONTACT_US}` }
+        ? { ok: false, closed: true, error: "This order was cancelled, so it can't be paid." }
         : { ok: false, paid: true, error: "This order is already paid." };
     }
     if (!sameAmount(cf.order_amount, order.total)) {
@@ -179,8 +217,13 @@ export async function reconcilePayment(orderId: number): Promise<PaymentState> {
   const method = paid.payment_group ? ` by ${paid.payment_group.replace(/_/g, " ")}` : "";
   const test = row.mode === "sandbox" ? "🧪 TEST MODE (no real money, don't ship) " : "";
   if (outcome === "marked") {
+    // This is the moment the order is really placed: the customer's invoice email is their confirmation,
+    // and the shop gets the full new-order alert (nothing was sent while the order was unpaid).
     const invoice = await sendInvoice(orderId);
-    await alert(`${test}💰 ${order.orderNumber} paid online: ${formatINR(order.total)}${method}. ${invoice.ok ? "Invoice emailed to the customer." : `Invoice email failed: ${invoice.error}`}`);
+    const status = `${test}Paid online ${formatINR(order.total)}${method}. ${invoice.ok ? "Invoice emailed to the customer." : `Invoice email failed: ${invoice.error}`}`;
+    const summary = await getOrderSummary(orderId);
+    if (summary) await alertNewOrder(orderId, summary, status);
+    else await alert(`${test}💰 ${order.orderNumber} ${status}`);
   } else if (outcome === "already_paid") {
     await alert(`${test}⚠️ ${order.orderNumber} was paid online (${formatINR(order.total)}${method}), but it had already been marked paid by hand. If the customer also paid you directly, refund one payment.`);
   } else if (outcome === "after_cancel") {
@@ -216,14 +259,25 @@ export async function closeOnlinePayment(orderId: number): Promise<void> {
 }
 
 /**
- * Before unpaid orders are auto-cancelled, catch any payment whose confirmation hasn't arrived yet.
- * Returns the orders that couldn't be checked (Cashfree unreachable): those must not be cancelled yet.
+ * Before unpaid orders are auto-cancelled: catch any payment whose confirmation hasn't arrived yet, and close
+ * any payment page still open so nobody can pay for a cancelled order. Returns the orders that couldn't be
+ * settled (Cashfree unreachable, or a payment still in progress): those must not be cancelled yet.
  */
 export async function reconcileBeforeExpiry(orderIds: number[]): Promise<number[]> {
+  const gw = gateway();
   const unchecked: number[] = [];
   for (const id of orderIds) {
     try {
-      await reconcilePayment(id);
+      if ((await reconcilePayment(id)) !== "pending" || !gw) continue;
+      const [row] = await db.select().from(payments).where(eq(payments.orderId, id));
+      let closed = await gw.api.terminateOrder(row.providerOrderId);
+      // Cashfree often answers "termination requested" and finishes a moment later: look once more.
+      if (closed.order_status === "TERMINATION_REQUESTED") {
+        await new Promise((r) => setTimeout(r, 1500));
+        closed = await gw.api.getOrder(row.providerOrderId);
+      }
+      if (closed.order_status === "PAID") await reconcilePayment(id);
+      else if (closed.order_status !== "TERMINATED") unchecked.push(id);
     } catch (e) {
       unchecked.push(id);
       console.error("[payments] pre-expiry check failed", id, e instanceof Error ? e.message : e);
@@ -241,21 +295,65 @@ async function alert(text: string) {
   await sendTelegram(text).catch((e) => console.error("[payments] telegram", e));
 }
 
-export type PayView = { orderNumber: string; total: number; status: Order["status"]; state: PaymentState };
+/**
+ * What the order page shows:
+ * - start: no payment tried yet (straight after checkout the page opens Cashfree by itself);
+ * - retry: a payment didn't complete; the customer has until payBy (at most 5 minutes) to try again;
+ * - processing: a payment is still going through (or Cashfree can't be reached): the page checks again shortly;
+ * - paid / cancelled: final.
+ */
+export type PayPhase = "start" | "retry" | "processing" | "paid" | "cancelled";
+export type PayView = { orderNumber: string; total: number; email: string; phase: PayPhase; payBy: string };
 
-/** What the order-confirmed page shows about paying. Re-checks with Cashfree when a payment was started. */
-export async function payView(orderNumber: string): Promise<PayView | null> {
+async function readOrder(orderNumber: string) {
   const [order] = await db.select().from(orders).where(eq(orders.orderNumber, orderNumber));
+  return order ?? null;
+}
+
+/** True while Cashfree is still finishing a payment (e.g. waiting for the customer to approve it in their UPI app). */
+async function paymentInProgress(api: CashfreeClient, providerOrderId: string): Promise<boolean> {
+  const list = await api.getPayments(providerOrderId);
+  return list.some((p) => p.payment_status === "PENDING");
+}
+
+/** The order page's view of an order. Re-checks with Cashfree, and cancels the order if its time to pay has run out. */
+export async function payView(orderNumber: string, now = new Date()): Promise<PayView | null> {
+  let order = await readOrder(orderNumber);
   if (!order) return null;
-  let state: PaymentState = "none";
+  let state: PaymentState | "unknown" = "none";
   if (order.status === "pending_payment") {
     try {
       state = await reconcilePayment(order.id);
     } catch (e) {
       console.error("[payments] status check failed", orderNumber, e instanceof Error ? e.message : e);
-      state = "pending";
+      state = "unknown";
+    }
+    order = (await readOrder(orderNumber))!;
+    if (order.status === "pending_payment" && isOverdue(order.payBy, now)) {
+      await releaseExpiredOrders(now);
+      order = (await readOrder(orderNumber))!;
     }
   }
-  const [fresh] = state === "paid" ? await db.select({ status: orders.status }).from(orders).where(eq(orders.id, order.id)) : [order];
-  return { orderNumber, total: order.total, status: fresh.status, state };
+  const view = (phase: PayPhase): PayView => ({ orderNumber, total: order!.total, email: order!.email, phase, payBy: order!.payBy.toISOString() });
+  if (order.status === "cancelled") return view("cancelled");
+  if (order.status !== "pending_payment") return view("paid");
+  if (state === "none") return view("start");
+  if (state === "unknown" || isOverdue(order.payBy, now)) return view("processing");
+
+  if (state === "pending") {
+    const gw = gateway();
+    const [row] = await db.select().from(payments).where(eq(payments.orderId, order.id));
+    try {
+      if (gw && row && (await paymentInProgress(gw.api, row.providerOrderId))) return view("processing");
+    } catch {
+      return view("processing");
+    }
+  }
+  // The payment didn't complete: from now the customer has at most 5 minutes to try again.
+  const retryBy = payWindowEnd(now);
+  if (order.payBy > retryBy) {
+    await db.update(orders).set({ payBy: retryBy }).where(and(eq(orders.id, order.id), eq(orders.status, "pending_payment"), gt(orders.payBy, retryBy)));
+    order = { ...order, payBy: retryBy };
+  }
+  return view("retry");
 }

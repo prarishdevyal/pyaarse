@@ -5,14 +5,14 @@ function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-export function buildTelegramMessage(o: OrderSummary, adminOrderUrl?: string): string {
+export function buildTelegramMessage(o: OrderSummary, adminOrderUrl?: string, status = "Awaiting payment"): string {
   const items = o.items
     .map((i) => `• ${esc(i.productName)} (${esc(i.variantName)}) × ${i.quantity} — ${formatINR(i.unitPrice * i.quantity)}`)
     .join("\n");
   const wa = `https://wa.me/${toWhatsAppNumber(o.phone)}`;
   const lines = [
     `🕯️ <b>New order ${esc(o.orderNumber)}</b>`,
-    `Status: Pending payment`,
+    `Status: ${esc(status)}`,
     ``,
     `👤 ${esc(o.customerName)}`,
     `📞 ${esc(o.phone)}`,

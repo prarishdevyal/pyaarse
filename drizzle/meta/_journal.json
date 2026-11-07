@@ -71,6 +71,13 @@
       "when": 1794062209259,
       "tag": "0009_admin_note",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794063580168,
+      "tag": "0010_pay_by",
+      "breakpoints": true
     }
   ]
 }

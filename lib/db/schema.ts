@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { boolean, integer, jsonb, pgTable, primaryKey, uuid, serial, text, timestamp, numeric } from "drizzle-orm/pg-core";
 
 export const collections = pgTable("collections", {
@@ -68,6 +69,8 @@ export const orders = pgTable("orders", {
   /** Delhivery waybill (AWB) number, set when the order ships. */
   trackingNumber: text("tracking_number"),
   shippedAt: timestamp("shipped_at", { withTimezone: true }),
+  /** An unpaid order is cancelled (and its stock released) once this passes. See lib/order-expiry.ts. */
+  payBy: timestamp("pay_by", { withTimezone: true }).notNull().default(sql`now() + interval '5 minutes'`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
 

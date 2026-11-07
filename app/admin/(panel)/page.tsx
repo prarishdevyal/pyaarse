@@ -2,7 +2,7 @@ import Link from "next/link";
 import { releaseExpiredOrders } from "@/lib/orders";
 import { startOfIndianDay } from "@/lib/format";
 import { requireAdmin } from "@/lib/auth";
-import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, lte, ne, notInArray, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { AdminOrdersTable } from "@/components/admin-orders-table";
 import { getStockRows } from "@/lib/stock-data";
@@ -15,12 +15,13 @@ export default async function AdminDashboard() {
   // Unpaid orders past their time are cancelled before counting, so the numbers are current.
   await releaseExpiredOrders();
   const startOfDay = startOfIndianDay();
+  // An unpaid order isn't placed yet: it's kept out of today's numbers and the recent list.
 
   const [[pending], [today], recent, lowStock] = await Promise.all([
     db.select({ n: count() }).from(orders).where(eq(orders.status, "pending_payment")),
     db.select({ n: count(), revenue: sql<number>`coalesce(sum(${orders.total}), 0)` }).from(orders)
-      .where(and(gte(orders.createdAt, startOfDay), sql`${orders.status} <> 'cancelled'`)),
-    db.select().from(orders).orderBy(desc(orders.createdAt)).limit(8),
+      .where(and(gte(orders.createdAt, startOfDay), notInArray(orders.status, ["cancelled", "pending_payment"]))),
+    db.select().from(orders).where(ne(orders.status, "pending_payment")).orderBy(desc(orders.createdAt)).limit(8),
     db.select({ productId: products.id, productName: products.name, variantName: productVariants.name, stock: productVariants.stock })
       .from(productVariants)
       .innerJoin(products, eq(products.id, productVariants.productId))

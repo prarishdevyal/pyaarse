@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "pay_by" timestamp with time zone DEFAULT now() + interval '5 minutes' NOT NULL;

@@ -12,7 +12,7 @@ export const DEFAULT_PRIVACY = `This policy explains what personal information P
 ## How we use it
 
 - To process, pack and deliver your order.
-- To take your payment, and to send you order updates (and, if you pay on WhatsApp, a UPI payment QR).
+- To take your payment and to send you order updates.
 - To email you an order confirmation.
 - To answer your questions and handle returns or complaints.
 
@@ -56,8 +56,8 @@ export const DEFAULT_TERMS = `These terms apply when you browse pyaarse.net or b
 
 ## Orders
 
-- An order is confirmed once we receive your payment. Until then it shows as "Pending payment".
-- Please complete your payment within 24 hours of placing the order. Unpaid orders are cancelled automatically after 24 hours, and the items go back on sale.
+- An order is confirmed once we receive your payment. Until then it shows as "Awaiting payment".
+- You pay online right after placing the order. If the payment doesn't go through, you have 5 minutes to try again; after that the order is cancelled automatically and the items go back on sale.
 - You can order up to 5 of each item per order. For larger quantities, contact us about a bulk order.
 - We may cancel an order if an item turns out to be unavailable or a price was shown incorrectly. If you have already paid, we will refund you in full.
 
@@ -68,7 +68,7 @@ export const DEFAULT_TERMS = `These terms apply when you browse pyaarse.net or b
 
 ## Payment
 
-Pay online with UPI, a debit or credit card, or net banking. Online payments are processed securely by Cashfree Payments; we never see your card or bank details. If we send you a payment link or QR code on WhatsApp, it will only come from our official number.
+Pay online with UPI, a debit or credit card, or net banking. Online payments are processed securely by Cashfree Payments; we never see your card or bank details.
 
 ## Delivery
 

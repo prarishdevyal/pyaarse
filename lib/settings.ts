@@ -25,7 +25,6 @@ export async function saveSettings(s: ShopSettings): Promise<void> {
   const rows: [string, string][] = [
     ["shipping_fee", String(s.shippingFee)],
     ["free_shipping_threshold", String(s.freeShippingThreshold)],
-    ["send_order_emails", String(s.sendOrderEmails)],
     ["contact_email", s.contactEmail],
     ["contact_whatsapp", s.contactWhatsapp],
     ["contact_instagram", s.contactInstagram],

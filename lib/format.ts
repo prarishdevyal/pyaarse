@@ -9,7 +9,7 @@ export function orderNumberFor(id: number): string {
 }
 
 export const STATUS_LABELS: Record<OrderStatus, string> = {
-  pending_payment: "Pending payment",
+  pending_payment: "Awaiting payment",
   paid: "Paid",
   shipped: "Shipped",
   delivered: "Delivered",

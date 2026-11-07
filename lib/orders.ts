@@ -2,13 +2,13 @@ import "server-only";
 import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { orderNumberFor } from "./format";
-import { expiryCutoff, pendingOrderTtlHours } from "./order-expiry";
+import { payWindowEnd } from "./order-expiry";
 import { priceCart } from "./pricing";
 import { getSettings, getStoreContact } from "./settings";
 import type { CheckoutInput } from "./validation";
 import type { OrderSummary } from "./notify/types";
 import { buildTelegramMessage, sendTelegram } from "./notify/telegram";
-import { buildAdminOrderEmail, buildConfirmationEmail, buildInvoiceEmail, buildShippedEmail, orderAlertEmail, sendEmail } from "./notify/email";
+import { buildAdminOrderEmail, buildInvoiceEmail, buildShippedEmail, orderAlertEmail, sendEmail } from "./notify/email";
 import { canShip, contactMatches, delhiveryTrackingUrl, trackSteps } from "./tracking";
 import { buildInvoicePdf, invoiceNumber } from "./invoice";
 import { couponDiscount, normalizeCode, totalsWithDiscount } from "./discounts";
@@ -46,25 +46,24 @@ export async function restockOrders(tx: Tx, orderIds: number[]) {
   }
 }
 
-/** Cancels unpaid orders older than PENDING_ORDER_TTL_HOURS so they stop holding stock. */
+/** Cancels unpaid orders whose hold (orders.payBy, see lib/order-expiry.ts) has passed, so they stop holding stock. */
 export async function releaseExpiredOrders(now = new Date()): Promise<number> {
-  const cutoff = expiryCutoff(now, pendingOrderTtlHours(process.env.PENDING_ORDER_TTL_HOURS));
   // Orders the customer started paying online: confirm with Cashfree first, so a late confirmation isn't cancelled.
   const startedOnline = await db
-    .select({ id: orders.id, createdAt: orders.createdAt })
+    .select({ id: orders.id, payBy: orders.payBy })
     .from(orders)
     .innerJoin(payments, eq(payments.orderId, orders.id))
-    .where(and(eq(orders.status, "pending_payment"), lt(orders.createdAt, cutoff), eq(payments.status, "created")));
+    .where(and(eq(orders.status, "pending_payment"), lt(orders.payBy, now), eq(payments.status, "created")));
   // If Cashfree can't be reached, keep those orders until a later sweep can check them (for up to a day),
   // rather than cancel an order the customer may have paid for.
   const unchecked = startedOnline.length ? await reconcileBeforeExpiry(startedOnline.map((o) => o.id)) : [];
-  const graceCutoff = new Date(cutoff.getTime() - 24 * 3600_000);
-  const keep = new Set(startedOnline.filter((o) => unchecked.includes(o.id) && o.createdAt > graceCutoff).map((o) => o.id));
+  const graceCutoff = new Date(now.getTime() - 24 * 3600_000);
+  const keep = new Set(startedOnline.filter((o) => unchecked.includes(o.id) && o.payBy > graceCutoff).map((o) => o.id));
   return db.transaction(async (tx) => {
     const expired = await tx
       .select({ id: orders.id })
       .from(orders)
-      .where(and(eq(orders.status, "pending_payment"), lt(orders.createdAt, cutoff)))
+      .where(and(eq(orders.status, "pending_payment"), lt(orders.payBy, now)))
       .orderBy(orders.id)
       .for("update", { skipLocked: true });
     const ids = expired.map((o) => o.id).filter((id) => !keep.has(id));
@@ -79,10 +78,12 @@ export async function placeOrder(
   input: CheckoutInput,
   userId: string | null,
 ): Promise<{ ok: true; orderId: number; orderNumber: string } | { ok: false; error: string }> {
+  // Every order is paid online, so there's no checkout without Cashfree.
+  if (!cashfreeConfig()) return { ok: false, error: "Checkout is paused for a moment. Please try again in a little while." };
   await releaseExpiredOrders();
-  const { sendOrderEmails, ...settings } = await getSettings();
+  const settings = await getSettings();
   try {
-    const { order, summary } = await db.transaction(async (tx) => {
+    const { order } = await db.transaction(async (tx) => {
       const variantIds = [...new Set(input.items.map((i) => i.variantId))];
       const variants = await tx
         .select({
@@ -135,6 +136,7 @@ export async function placeOrder(
           couponCode: discount ? code : null,
           shipping: totals.shipping,
           total: totals.total,
+          payBy: payWindowEnd(new Date()),
         })
         .returning({ id: orders.id });
       const orderNumber = orderNumberFor(created.id);
@@ -155,20 +157,10 @@ export async function placeOrder(
         })),
       );
 
-      const summary: OrderSummary = {
-        ...customer,
-        orderNumber,
-        subtotal: totals.subtotal,
-        discount: totals.discount,
-        couponCode: discount ? code : null,
-        shipping: totals.shipping,
-        total: totals.total,
-        items: priced.lines,
-      };
-      return { order: { id: created.id, orderNumber }, summary };
+      return { order: { id: created.id, orderNumber } };
     });
 
-    await notifyNewOrder(order.id, summary, sendOrderEmails);
+    // Nobody is notified yet: the order only counts once it's paid (see reconcilePayment in payments.ts).
     return { ok: true, orderId: order.id, orderNumber: order.orderNumber };
   } catch (e) {
     if (e instanceof CheckoutError) return { ok: false, error: e.message };
@@ -176,18 +168,14 @@ export async function placeOrder(
   }
 }
 
-/** Notifications must never fail an order that is already saved. */
-async function notifyNewOrder(orderId: number, summary: OrderSummary, emailCustomer: boolean) {
+/** New-order alerts for the shop (Telegram and the alert inbox). Never throws. */
+export async function alertNewOrder(orderId: number, summary: OrderSummary, status?: string) {
   const adminBase = process.env.ADMIN_URL;
   const adminOrderUrl = adminBase ? `${adminBase}/orders/${orderId}` : undefined;
   const alertTo = orderAlertEmail();
   const results = await Promise.allSettled([
-    sendTelegram(buildTelegramMessage(summary, adminOrderUrl)),
-    alertTo ? sendEmail(alertTo, buildAdminOrderEmail(summary, adminOrderUrl)) : Promise.resolve(),
-    // The admin can switch customer confirmation emails off in Settings.
-    emailCustomer
-      ? sendEmail(summary.email, buildConfirmationEmail(summary, trackPageUrl(summary.orderNumber), cashfreeConfig() ? `${siteUrl()}${payPath(summary.orderNumber)}` : undefined))
-      : Promise.resolve(),
+    sendTelegram(buildTelegramMessage(summary, adminOrderUrl, status)),
+    alertTo ? sendEmail(alertTo, buildAdminOrderEmail(summary, adminOrderUrl, status)) : Promise.resolve(),
   ]);
   for (const r of results) if (r.status === "rejected") console.error("[order notify]", r.reason);
 }
@@ -222,7 +210,6 @@ export async function invoicePdfFor(summary: OrderSummary, paid: boolean, invoic
     ...summary,
     invoiceDate,
     paid,
-    payOnline: cashfreeConfig() !== null,
     store: { email: store.email, whatsapp: store.whatsapp, website: siteUrl().replace(/^https?:\/\//, "") },
   });
 }
@@ -281,7 +268,7 @@ export type TrackedOrder = {
   items: { name: string; quantity: number }[];
   trackingNumber: string | null;
   delhiveryUrl: string | null;
-  /** Link to pay online, for unpaid orders while online payment is on. */
+  /** Link to pay, for unpaid orders. */
   payPath: string | null;
 };
 
@@ -302,6 +289,6 @@ export async function findTrackedOrder(orderNumber: string, contact: string): Pr
     items: items.map((i) => ({ name: `${i.productName} (${i.variantName})`, quantity: i.quantity })),
     trackingNumber: order.trackingNumber,
     delhiveryUrl: order.trackingNumber ? delhiveryTrackingUrl(order.trackingNumber) : null,
-    payPath: order.status === "pending_payment" && cashfreeConfig() ? payPath(order.orderNumber) : null,
+    payPath: order.status === "pending_payment" ? payPath(order.orderNumber) : null,
   };
 }
