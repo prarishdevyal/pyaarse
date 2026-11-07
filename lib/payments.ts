@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import {
   CashfreeError,
@@ -12,7 +12,7 @@ import {
   type CashfreeMode,
   type CashfreeOrder,
 } from "./cashfree";
-import { canStartPayment, checkoutExpiry, isOverdue, payWindowEnd } from "./order-expiry";
+import { canStartPayment, CHECKOUT_OPEN_MS, checkoutExpiry, isOverdue, payWindowEnd } from "./order-expiry";
 import { siteUrl } from "./hosts";
 import { payPath } from "./pay-link";
 import { formatINR } from "./format";
@@ -78,11 +78,14 @@ async function newAttempt(row: Payment, orderNumber: string): Promise<Payment> {
   return next ?? row;
 }
 
-/** Keeps the order held while Cashfree's payment page is open. False if the order is no longer awaiting payment. */
+/**
+ * Keeps the order held at least while Cashfree's payment page is open (a longer deadline, e.g. one the shop
+ * set by hand, is kept). False if the order is no longer awaiting payment.
+ */
 async function holdUntil(orderId: number, until: Date): Promise<boolean> {
   const held = await db
     .update(orders)
-    .set({ payBy: until })
+    .set({ payBy: sql`greatest(${orders.payBy}, ${until.toISOString()}::timestamptz)` })
     .where(and(eq(orders.id, orderId), eq(orders.status, "pending_payment")))
     .returning({ id: orders.id });
   return held.length > 0;
@@ -161,7 +164,7 @@ export async function startPayment(orderNumber: string): Promise<StartPaymentRes
     return { ok: true, sessionId: cf.payment_session_id, mode: gw.config.mode };
   } catch (e) {
     console.error("[payments] start failed", order.orderNumber, e instanceof Error ? e.message : e);
-    return { ok: false, error: `We couldn't open the payment page. Please try again in a minute. If it keeps failing, ${CONTACT_US.toLowerCase()}` };
+    return { ok: false, error: `We couldn't open the payment page. Please try again in a minute. If it keeps failing, message us.` };
   }
 }
 
@@ -337,7 +340,9 @@ export async function payView(orderNumber: string, now = new Date()): Promise<Pa
   const view = (phase: PayPhase): PayView => ({ orderNumber, total: order!.total, email: order!.email, phase, payBy: order!.payBy.toISOString() });
   if (order.status === "cancelled") return view("cancelled");
   if (order.status !== "pending_payment") return view("paid");
-  if (state === "none") return view("start");
+  // No online attempt yet, or an old payment record on an order that's awaiting payment again (e.g. restored by
+  // hand): show the order's own deadline and never shorten it.
+  if (state === "none" || state === "paid") return view("start");
   if (state === "unknown" || isOverdue(order.payBy, now)) return view("processing");
 
   if (state === "pending") {
@@ -350,8 +355,10 @@ export async function payView(orderNumber: string, now = new Date()): Promise<Pa
     }
   }
   // The payment didn't complete: from now the customer has at most 5 minutes to try again.
+  // (A deadline longer than any payment page, e.g. one the shop gave by hand, is left alone.)
   const retryBy = payWindowEnd(now);
-  if (order.payBy > retryBy) {
+  const manualDeadline = order.payBy.getTime() - now.getTime() > CHECKOUT_OPEN_MS + 60_000;
+  if (order.payBy > retryBy && !manualDeadline) {
     await db.update(orders).set({ payBy: retryBy }).where(and(eq(orders.id, order.id), eq(orders.status, "pending_payment"), gt(orders.payBy, retryBy)));
     order = { ...order, payBy: retryBy };
   }

@@ -16,8 +16,10 @@ export const checkoutExpiry = (now: Date) => new Date(now.getTime() + CHECKOUT_O
 export const canStartPayment = (payBy: Date, now: Date) => payBy.getTime() - now.getTime() > START_MARGIN_MS;
 export const isOverdue = (payBy: Date, now: Date) => payBy.getTime() <= now.getTime();
 
-/** Time left as m:ss, rounded up so "0:00" only shows once time has really run out. */
+/** Time left as m:ss (or "2 days 3 h" / "5 h 12 min" for long deadlines), rounded up so "0:00" only shows at the end. */
 export function formatCountdown(ms: number): string {
   const s = Math.max(0, Math.ceil(ms / 1000));
+  if (s >= 86_400) return `${Math.floor(s / 86_400)} day${s >= 172_800 ? "s" : ""} ${Math.floor((s % 86_400) / 3600)} h`;
+  if (s >= 3600) return `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min`;
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }

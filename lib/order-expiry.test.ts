@@ -32,4 +32,9 @@ describe("formatCountdown", () => {
     expect(formatCountdown(9_500)).toBe("0:10");
   });
   it("never goes below zero", () => expect(formatCountdown(-3_000)).toBe("0:00"));
+  it("reads well for long deadlines", () => {
+    expect(formatCountdown(3 * 86_400_000 - 1)).toBe("3 days 0 h");
+    expect(formatCountdown(26 * 3600_000)).toBe("1 day 2 h");
+    expect(formatCountdown(2 * 3600_000 + 5 * 60_000)).toBe("2 h 5 min");
+  });
 });
