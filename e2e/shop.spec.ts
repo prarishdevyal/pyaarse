@@ -25,6 +25,16 @@ test("add to cart updates the badge and the cart page", async ({ page }) => {
   const name = (await page.getByRole("heading", { level: 1 }).textContent())!.trim();
   await add.click();
   await expect(page.getByRole("status")).toContainText("Added to your cart");
+  // The Add to Cart button itself turns into View cart; no extra link appears.
+  await expect(page.getByRole("button", { name: "Add to Cart" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "View cart", exact: true })).toHaveCount(1);
+  // The counter now edits the cart: + adds one, and − back to zero turns the button back into Add to Cart.
+  await page.getByRole("button", { name: "Increase" }).click();
+  await expect(page.getByRole("link", { name: "Cart", exact: true })).toContainText("2");
+  await page.getByRole("button", { name: "Decrease" }).click();
+  await page.getByRole("button", { name: "Decrease" }).click();
+  await expect(page.getByRole("button", { name: "Add to Cart" })).toBeVisible();
+  await add.click();
   await expect(page.getByRole("link", { name: "Cart", exact: true })).toContainText("1");
 
   await page.goto("/cart");

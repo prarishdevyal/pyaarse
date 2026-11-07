@@ -166,7 +166,7 @@ export const CONTENT_GROUPS: ContentGroup[] = [
       line("product.addToCart", "Add to cart button", "Add to Cart"),
       line("product.limitReached", "Button when the cart already has the most allowed", "Limit reached in cart"),
       line("product.added", "Message after adding", "Added to your cart."),
-      line("product.viewCart", "Link after adding", "View cart →"),
+      line("product.viewCart", "Button once the item is in the cart", "View cart"),
       line("product.comingSoon", "When a product has no options yet", "Coming soon."),
     ],
   },

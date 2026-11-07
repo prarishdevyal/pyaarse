@@ -37,7 +37,7 @@ test("customer places an order", async ({ page }) => {
 
   const add = await openInStockProduct(page);
   await add.click();
-  await expect(page.getByText("Added to your cart.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "View cart", exact: true })).toBeVisible();
 
   await page.goto("/checkout");
   await page.getByLabel("Full name").fill("Launch Test");
