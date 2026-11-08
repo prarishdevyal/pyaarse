@@ -6,6 +6,7 @@ import { db, schema } from "@/lib/db";
 import { formatINR } from "@/lib/format";
 import { cardTotals, likePattern, ordersHref, parseOrderFilters, rangeStart, statusesMatching } from "@/lib/order-filters";
 import { OrdersManager } from "./orders-manager";
+import { LiveRefresh } from "@/components/live-refresh";
 import { OrderFiltersForm } from "./order-filters-form";
 
 export const metadata = { title: "Orders" };
@@ -48,7 +49,10 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
 
   return (
     <div className="space-y-6">
-      <h1 className="font-serif text-4xl text-brand">Orders</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-serif text-4xl text-brand">Orders</h1>
+        <LiveRefresh />
+      </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {cards.map((c) => {

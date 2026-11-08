@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { and, count, desc, eq, gte, lte, ne, notInArray, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { AdminOrdersTable } from "@/components/admin-orders-table";
+import { LiveRefresh } from "@/components/live-refresh";
 import { getStockRows } from "@/lib/stock-data";
 import { LOW_STOCK, stockSummary } from "@/lib/stock";
 
@@ -42,7 +43,10 @@ export default async function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      <h1 className="font-serif text-4xl text-brand">Dashboard</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-serif text-4xl text-brand">Dashboard</h1>
+        <LiveRefresh />
+      </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => (
           <Link key={s.label} href={s.href} className="card bg-white p-5 hover:border-brand">

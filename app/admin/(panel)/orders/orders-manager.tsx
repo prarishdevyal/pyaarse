@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { formatDateTime, formatINR, STATUS_LABELS } from "@/lib/format";
 import type { OrderStatus } from "@/lib/db/schema";
 import { ADMIN_NOTE_MAX } from "@/lib/order-note";
+import { isNewOrder } from "@/lib/live";
 import { setOrderNote, setOrdersStatus, type BulkStatusResult } from "../../actions";
 
 // Status order as defined for labels; avoids pulling the database schema into the browser bundle.
@@ -148,7 +149,10 @@ export function OrdersManager({ orders }: { orders: ManagedOrder[] }) {
                     className="h-4 w-4 accent-brand disabled:opacity-30"
                   />
                 </td>
-                <td className="px-3 py-3"><Link href={`/orders/${o.id}`} className="font-medium text-brand hover:underline">{o.orderNumber}</Link></td>
+                <td className="px-3 py-3">
+                  <Link href={`/orders/${o.id}`} className="font-medium text-brand hover:underline">{o.orderNumber}</Link>
+                  {isNewOrder(o.createdAt) && <span className="ml-2 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-medium uppercase text-white">New</span>}
+                </td>
                 <td className="px-3 py-3">{o.customerName}<div className="text-xs text-taupe">{o.phone}</div></td>
                 <td className="whitespace-nowrap px-3 py-3">{formatDateTime(o.createdAt)}</td>
                 <td className="px-3 py-3">{formatINR(o.total)}</td>
