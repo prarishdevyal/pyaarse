@@ -11,10 +11,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { clientIp, limits, TOO_MANY } from "@/lib/limits";
 import { slugify } from "@/lib/format";
 import { expiryFromDate, toStoredPrices } from "@/lib/discounts";
-import { canChangeStatus, isOrderStatus, shouldRestock } from "@/lib/order-status";
+import { isOrderStatus } from "@/lib/order-status";
 import { saveSettings as storeSettings, setMaintenance } from "@/lib/settings";
-import { restockOrders, saveTracking, sendInvoice } from "@/lib/orders";
-import { closeOnlinePayment } from "@/lib/payments";
+import { changeOrderStatus, saveTracking, sendInvoice } from "@/lib/orders";
 import { isValidAwb, normalizeAwb } from "@/lib/tracking";
 import { cleanAdminNote } from "@/lib/order-note";
 import { removeImages, saveImage } from "@/lib/uploads";
@@ -24,6 +23,7 @@ import { resetSentMessage, sendPasswordResetLink } from "@/lib/password-reset";
 import { cleanContentEdits, HERO_IMAGE_KEY } from "@/lib/content-defaults";
 import { inArray } from "drizzle-orm";
 import type { FormState } from "@/app/actions";
+import type { OrderStatus } from "@/lib/db/schema";
 
 const { products, productVariants, collections, orders } = schema;
 
@@ -97,19 +97,42 @@ export async function updateOrderStatus(formData: FormData) {
   const id = Number(formData.get("id"));
   const to = formData.get("status");
   if (!Number.isInteger(id) || !isOrderStatus(to)) return;
-
-  const from = await db.transaction(async (tx) => {
-    const [order] = await tx.select().from(orders).where(eq(orders.id, id)).for("update");
-    if (!order || !canChangeStatus(order.status, to)) return null;
-    if (shouldRestock(order.status, to)) await restockOrders(tx, [id]);
-    await tx.update(orders).set({ status: to }).where(eq(orders.id, id));
-    return order.status;
-  });
-  // Settled by hand: close the online checkout so the customer can't also pay there.
-  if (from === "pending_payment") await closeOnlinePayment(id);
-  // Approving payment sends the customer their invoice.
-  if (from === "pending_payment" && to === "paid") redirect(invoiceResultUrl(id, await sendInvoice(id)));
+  const r = await changeOrderStatus(id, to);
+  if (r?.invoice) redirect(invoiceResultUrl(id, r.invoice));
   redirect(`/orders/${id}`);
+}
+
+export type BulkStatusResult = { changed: number; skipped: string[]; invoiceFailed: string[] };
+
+/** Status change from the Orders list, for one or many orders at once. */
+export async function setOrdersStatus(ids: number[], to: string): Promise<BulkStatusResult | { error: string }> {
+  await requireAdmin();
+  if (!isOrderStatus(to)) return { error: "Pick a status." };
+  const clean = [...new Set(ids)].filter((n) => Number.isInteger(n) && n > 0).slice(0, 200);
+  if (clean.length === 0) return { error: "Select at least one order." };
+  const numbers = new Map(
+    (await db.select({ id: orders.id, orderNumber: orders.orderNumber }).from(orders).where(inArray(orders.id, clean))).map((o) => [o.id, o.orderNumber]),
+  );
+  const result: BulkStatusResult = { changed: 0, skipped: [], invoiceFailed: [] };
+  for (const id of clean) {
+    const label = numbers.get(id) ?? `#${id}`;
+    const r = await changeOrderStatus(id, to);
+    if (!r) result.skipped.push(label);
+    else {
+      result.changed++;
+      if (r.invoice && !r.invoice.ok) result.invoiceFailed.push(label);
+    }
+  }
+  return result;
+}
+
+/** Admin note edited from the Orders list. */
+export async function setOrderNote(id: number, note: string): Promise<{ note: string } | { error: string }> {
+  await requireAdmin();
+  if (!Number.isInteger(id) || id <= 0) return { error: "Unknown order." };
+  const clean = cleanAdminNote(note);
+  const updated = await db.update(schema.orders).set({ adminNote: clean }).where(eq(schema.orders.id, id)).returning({ id: schema.orders.id });
+  return updated.length ? { note: clean } : { error: "Unknown order." };
 }
 
 /** Saves the Delhivery waybill, marks the order shipped, and (optionally) emails the customer. */

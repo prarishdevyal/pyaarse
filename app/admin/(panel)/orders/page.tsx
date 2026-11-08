@@ -5,7 +5,7 @@ import { and, count, desc, eq, gte, ilike, inArray, or, sql, type SQL } from "dr
 import { db, schema } from "@/lib/db";
 import { formatINR } from "@/lib/format";
 import { cardTotals, likePattern, ordersHref, parseOrderFilters, rangeStart, statusesMatching } from "@/lib/order-filters";
-import { AdminOrdersTable } from "@/components/admin-orders-table";
+import { OrdersManager } from "./orders-manager";
 import { OrderFiltersForm } from "./order-filters-form";
 
 export const metadata = { title: "Orders" };
@@ -73,7 +73,9 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
       {rows.length === 0 && (f.status || f.q || f.range !== "all") ? (
         <p className="py-8 text-center text-taupe">No orders match these filters.</p>
       ) : (
-        <AdminOrdersTable orders={rows} />
+        <OrdersManager
+          orders={rows.map((r) => ({ id: r.id, orderNumber: r.orderNumber, customerName: r.customerName, phone: r.phone, total: r.total, status: r.status, createdAt: r.createdAt, adminNote: r.adminNote }))}
+        />
       )}
       {rows.length === 200 && <p className="text-center text-xs text-taupe">Showing the latest 200. Narrow the search or dates to see older ones.</p>}
     </div>

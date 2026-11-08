@@ -3,6 +3,8 @@ import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 import { orderNumberFor } from "./format";
 import { payWindowEnd } from "./order-expiry";
+import { canChangeStatus, shouldRestock } from "./order-status";
+import type { OrderStatus } from "./db/schema";
 import { priceCart } from "./pricing";
 import { getSettings, getStoreContact, MAINTENANCE_MESSAGE } from "./settings";
 import type { CheckoutInput } from "./validation";
@@ -14,7 +16,7 @@ import { buildInvoicePdf, invoiceNumber } from "./invoice";
 import { couponDiscount, normalizeCode, totalsWithDiscount } from "./discounts";
 
 import { siteUrl } from "./hosts";
-import { reconcileBeforeExpiry } from "./payments";
+import { closeOnlinePayment, reconcileBeforeExpiry } from "./payments";
 import { cashfreeConfig } from "./cashfree";
 import { payPath } from "./pay-link";
 
@@ -179,6 +181,26 @@ export async function alertNewOrder(orderId: number, summary: OrderSummary, stat
     alertTo ? sendEmail(alertTo, buildAdminOrderEmail(summary, adminOrderUrl, status)) : Promise.resolve(),
   ]);
   for (const r of results) if (r.status === "rejected") console.error("[order notify]", r.reason);
+}
+
+/**
+ * Moves one order to a new status with all its side effects. Shared by the order page, the Orders list and
+ * bulk changes. Returns null when the change isn't allowed (cancelled orders are final, or it's the same status).
+ */
+export async function changeOrderStatus(id: number, to: OrderStatus): Promise<{ from: OrderStatus; invoice?: Awaited<ReturnType<typeof sendInvoice>> } | null> {
+  const from = await db.transaction(async (tx) => {
+    const [order] = await tx.select().from(orders).where(eq(orders.id, id)).for("update");
+    if (!order || !canChangeStatus(order.status, to)) return null;
+    if (shouldRestock(order.status, to)) await restockOrders(tx, [id]);
+    await tx.update(orders).set({ status: to }).where(eq(orders.id, id));
+    return order.status;
+  });
+  if (!from) return null;
+  // Settled by hand: close the online checkout so the customer can't also pay there.
+  if (from === "pending_payment") await closeOnlinePayment(id);
+  // Approving payment sends the customer their invoice.
+  if (from === "pending_payment" && to === "paid") return { from, invoice: await sendInvoice(id) };
+  return { from };
 }
 
 /** An order with its items, in the shape the emails and invoice use. */
