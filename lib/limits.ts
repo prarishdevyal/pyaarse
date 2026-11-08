@@ -29,6 +29,7 @@ export const limits = {
   resetByIp: limiter("reset-ip", 5, 60 * MIN),
   resetByEmail: limiter("reset-email", 3, 60 * MIN),
   checkoutByIp: limiter("checkout-ip", 10, 60 * MIN),
+  pincodeByIp: limiter("pincode-ip", 40, 15 * MIN),
   checkoutByEmail: limiter("checkout-email", 5, 60 * MIN),
   contactByIp: limiter("contact-ip", 5, 60 * MIN),
   contactByEmail: limiter("contact-email", 3, 60 * MIN),

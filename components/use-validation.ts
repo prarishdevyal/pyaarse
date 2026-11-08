@@ -53,5 +53,5 @@ export function useValidation(shape: Shape, serverErrors?: Record<string, string
   };
 
   const error = (name: string) => errors[name] ?? (touched[name] ? undefined : serverErrors?.[name]);
-  return { error, onBlur, onChange, onSubmit, validateForm, bind: { onBlur, onChange } };
+  return { error, check, onBlur, onChange, onSubmit, validateForm, bind: { onBlur, onChange } };
 }

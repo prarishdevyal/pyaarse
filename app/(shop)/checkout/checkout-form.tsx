@@ -11,6 +11,7 @@ import { useQuote } from "@/components/use-quote";
 import { Totals } from "@/components/order-summary";
 import { formatINR } from "@/lib/format";
 import { INDIA_STATES, STATE_NAMES } from "@/lib/india";
+import { isPincode } from "@/lib/pincode";
 import { checkoutFieldsShape } from "@/lib/validation";
 import { useValidation } from "@/components/use-validation";
 import { FormField, invalidProps } from "@/components/form-field";
@@ -32,6 +33,35 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
   const [state, setState] = useState("");
   const [cityChoice, setCityChoice] = useState("");
   const cities = state ? INDIA_STATES[state] ?? [] : [];
+  const [cityText, setCityText] = useState("");
+  const [pinNote, setPinNote] = useState<{ text: string; ok: boolean } | null>(null);
+
+  /** Six digits typed: fill in the state and city from the pincode (the customer can still change them). */
+  async function lookupPincode(pin: string) {
+    setPinNote(null);
+    if (!isPincode(pin)) return;
+    try {
+      const res = await fetch(`/api/pincode/${pin}`);
+      const place = (await res.json()) as { found: boolean; state?: string; city?: string | null; district?: string };
+      if (!place.found || !place.state) {
+        if (res.status === 200) setPinNote({ text: "We couldn't find this pincode. Check it, or choose your state and city below.", ok: false });
+        return;
+      }
+      setState(place.state);
+      v.check("state", place.state);
+      if (place.city) {
+        setCityChoice(place.city);
+        v.check("city", place.city);
+      } else {
+        setCityChoice(OTHER);
+        setCityText(place.district ?? "");
+        v.check("city", place.district ?? "");
+      }
+      setPinNote({ text: `${place.city ?? place.district}, ${place.state}`, ok: true });
+    } catch {
+      // The lookup is only a convenience: the customer picks the state and city themselves.
+    }
+  }
   // Set once the order is placed: the page turns into a "taking you to payment" screen until Cashfree opens.
   const [leaving, setLeaving] = useState(false);
 
@@ -109,6 +139,25 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
         <fieldset className="grid gap-4 sm:grid-cols-2">
           <legend className="mb-4 font-serif text-2xl">Shipping address</legend>
           <div className="sm:col-span-2">{field("addressLine", "Address", { autoComplete: "street-address", placeholder: "House no, street, area, landmark", required: true })}</div>
+          <div className="sm:col-span-2">
+            {field("pincode", "Pincode", {
+              inputMode: "numeric",
+              autoComplete: "postal-code",
+              maxLength: 6,
+              required: true,
+              onChange: (e) => {
+                v.onChange(e);
+                const pin = e.target.value.replace(/\D/g, "");
+                if (pin.length === 6) lookupPincode(pin);
+                else setPinNote(null);
+              },
+            })}
+            {pinNote && (
+              <p className={`mt-1.5 text-sm ${pinNote.ok ? "text-emerald-800" : "text-taupe"}`} role="status">
+                {pinNote.ok ? `✓ ${pinNote.text}` : pinNote.text}
+              </p>
+            )}
+          </div>
           <FormField id="state" label="State" error={v.error("state")}>
             <select
               id="state"
@@ -130,7 +179,20 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
           </FormField>
           <FormField id="city" label="City" error={v.error("city")}>
             {cityChoice === OTHER ? (
-              <input id="city" name="city" autoFocus autoComplete="address-level2" placeholder="Type your city or town" className="input" {...v.bind} {...invalidProps("city", v.error("city"))} />
+              <input
+                id="city"
+                name="city"
+                autoComplete="address-level2"
+                placeholder="Type your city or town"
+                className="input"
+                value={cityText}
+                onChange={(e) => {
+                  setCityText(e.target.value);
+                  v.onChange(e);
+                }}
+                onBlur={v.onBlur}
+                {...invalidProps("city", v.error("city"))}
+              />
             ) : (
               <>
                 <select
@@ -154,7 +216,6 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
               </>
             )}
           </FormField>
-          {field("pincode", "Pincode", { inputMode: "numeric", autoComplete: "postal-code", maxLength: 6, required: true })}
           <div className="sm:col-span-2">
             <FormField id="notes" label="Order notes" optional error={v.error("notes")}>
               <textarea id="notes" name="notes" rows={3} maxLength={500} className="input" placeholder="Gift message, delivery instructions…" {...v.bind} />
