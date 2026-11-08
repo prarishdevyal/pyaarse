@@ -8,7 +8,7 @@ import { formatCountdown } from "@/lib/order-expiry";
 
 
 /**
- * The payment part of the order page. Before paying (start) and after a failed payment (retry) it counts down to payBy (measured against the server's clock,
+ * The payment part of the order page. After a failed payment (retry) it counts down to payBy (measured against the server's clock,
  * so a wrong phone clock doesn't matter) and reloads when time runs out; in "processing" it checks again every few seconds.
  */
 export function PaymentStatus(props: {
@@ -29,7 +29,7 @@ export function PaymentStatus(props: {
       const t = setInterval(() => router.refresh(), 5000);
       return () => clearInterval(t);
     }
-    // Both before the first try and after a failed one, the customer sees how long the candles stay held.
+    if (props.phase !== "retry") return;
     const mounted = Date.now();
     const start = Date.parse(props.payBy) - Date.parse(props.serverNow);
     const t = setInterval(() => {
@@ -53,6 +53,15 @@ export function PaymentStatus(props: {
   }
 
   const label = `Pay ${formatINR(props.total)}`;
+  // Before the first try there's no countdown: the clock only shows after a payment didn't go through.
+  if (props.phase === "start") {
+    return (
+      <div className="card mt-8 p-6">
+        <PayButton orderNumber={props.orderNumber} token={props.token} label={label} autoStart={props.autoStart} />
+        <p className="mt-4 text-xs text-taupe">UPI, cards or net banking, handled securely by Cashfree. We never see your card or bank details.</p>
+      </div>
+    );
+  }
   const urgent = left <= 60_000;
   return (
     <div className="card mt-8 p-6">
@@ -60,7 +69,7 @@ export function PaymentStatus(props: {
       <p className={`mt-1 font-serif text-5xl tabular-nums ${urgent ? "text-brand" : ""}`} aria-live="off">{formatCountdown(left)}</p>
       <div className="mt-5">
         {left > 0 ? (
-          <PayButton orderNumber={props.orderNumber} token={props.token} label={label} autoStart={props.autoStart} />
+          <PayButton orderNumber={props.orderNumber} token={props.token} label={label} />
         ) : (
           <p className="text-sm text-taupe">Checking…</p>
         )}

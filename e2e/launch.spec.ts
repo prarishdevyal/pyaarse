@@ -20,6 +20,7 @@ test.skip(!process.env.E2E_LAUNCH, "Launch check runs only via `npm run test:lau
 test.beforeEach(({}, testInfo) => test.skip(testInfo.project.name !== "desktop", "Desktop only"));
 
 let orderNumber = "";
+let placed = false;
 
 async function logIn(page: Page, url: string, email: string, password: string, button: RegExp) {
   await page.goto(url);
@@ -50,26 +51,25 @@ test("customer places an order", async ({ page }) => {
   await expect(page.getByText("Total")).toBeVisible();
   await page.getByRole("button", { name: /^Place order/ }).click();
 
-  // With online payment on, the page moves on to Cashfree straight away, so read the number as it passes.
-  await page.waitForURL((url) => {
-    if (url.pathname !== "/order-confirmed") return false;
-    orderNumber = url.searchParams.get("n") ?? "";
-    return true;
-  }, { timeout: 30_000 });
-  expect(orderNumber).toMatch(/^PY\d+$/);
-  console.log(`Placed ${orderNumber}`);
+  // Checkout goes straight to Cashfree's payment page (or to the order page if it couldn't open).
+  await page.waitForURL((url) => /cashfree\.com$/.test(url.hostname) || url.pathname === "/order-confirmed", { timeout: 30_000 });
+  placed = true;
   noErrors();
 });
 
 test("admin sends the invoice, marks it paid, then cancels it", async ({ page }) => {
-  expect(orderNumber, "the order step must pass first").toMatch(/^PY\d+$/);
+  expect(placed, "the order step must pass first").toBe(true);
   expect(env.adminEmail && env.adminPassword, "set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD in .env.e2e").toBeTruthy();
 
   await logIn(page, `${ADMIN_URL}/login`, env.adminEmail, env.adminPassword, /^Sign in$/);
   await expect(page.getByRole("heading", { name: "Dashboard" }), "admin login failed: check the admin email and password").toBeVisible();
 
-  await page.goto(`${ADMIN_URL}/orders`);
-  await page.getByRole("link", { name: orderNumber, exact: true }).click();
+  // The newest order from the launch customer is the one just placed.
+  await page.goto(`${ADMIN_URL}/orders?q=${encodeURIComponent("Launch Test")}`);
+  const link = page.getByRole("link", { name: /^PY\d+$/ }).first();
+  orderNumber = (await link.textContent())!.trim();
+  console.log(`Placed ${orderNumber}`);
+  await link.click();
   await expect(page.getByRole("heading", { name: `Order ${orderNumber}` })).toBeVisible();
   await expect(page.getByText("Amount to pay")).toBeVisible();
 

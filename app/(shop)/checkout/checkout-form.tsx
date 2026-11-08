@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { phoneInputProps } from "@/lib/phone-input";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { loadSdk, openPayment } from "@/components/pay-button";
 import { checkout } from "@/app/actions";
 import { useCart } from "@/components/cart-provider";
 import { useQuote } from "@/components/use-quote";
@@ -31,7 +32,23 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
   const [state, setState] = useState("");
   const [cityChoice, setCityChoice] = useState("");
   const cities = state ? INDIA_STATES[state] ?? [] : [];
+  // Set once the order is placed: the page turns into a "taking you to payment" screen until Cashfree opens.
+  const [leaving, setLeaving] = useState(false);
 
+  // Fetch Cashfree's script while the customer fills in the form, so payment opens straight away.
+  useEffect(() => {
+    loadSdk().catch(() => {});
+  }, []);
+
+  if (leaving) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center text-center" role="status">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-sand border-t-brand" aria-hidden />
+        <p className="mt-4 font-medium">Taking you to secure payment…</p>
+        <p className="mt-1 text-sm text-taupe">Please don&apos;t close this page.</p>
+      </div>
+    );
+  }
   if (!ready) return null;
   if (items.length === 0) {
     return (
@@ -54,10 +71,12 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
     start(async () => {
       const res = await checkout({ ...f, couponCode: quote?.ok && quote.couponCode ? quote.couponCode : "", items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })) });
       if (res.ok) {
+        // Straight to Cashfree. The cart is emptied behind the "taking you to payment" screen, so it never flashes.
+        setLeaving(true);
         clear();
-        const n = encodeURIComponent(res.orderNumber);
-        // The order page opens Cashfree's payment page straight away (pay=1).
-        router.push(`/order-confirmed?n=${n}&t=${res.payToken}&pay=1`);
+        const opened = await openPayment(res.orderNumber, res.payToken);
+        // If Cashfree couldn't open, the order page has the Pay button and explains what happened.
+        if (!opened.ok) router.push(`/order-confirmed?n=${encodeURIComponent(res.orderNumber)}&t=${res.payToken}`);
       } else {
         setError(res.error ?? (res.fieldErrors?.items ? res.fieldErrors.items : "Please check the highlighted fields."));
         setFieldErrors(res.fieldErrors ?? {});
