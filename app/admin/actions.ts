@@ -371,15 +371,20 @@ export async function deleteCollection(formData: FormData) {
 
 // ---------- Settings ----------
 
-export async function saveSettings(_prev: FormState, formData: FormData): Promise<FormState> {
+export type SavedSettings = { shippingFee: number; freeShippingThreshold: number; contactEmail: string; contactWhatsapp: string; contactInstagram: string };
+export type SettingsState = (NonNullable<FormState> & { saved?: SavedSettings }) | undefined;
+
+/** Saves Settings and returns what was stored, so the form shows it (React resets a form after its action). */
+export async function saveSettings(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
   await requireAdmin();
   const parsed = settingsSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { contactEmail, contactWhatsapp, contactInstagram } = parsed.data;
   const shippingFee = Number(parsed.data.shippingFee);
   const freeShippingThreshold = Number(parsed.data.freeShippingThreshold);
-  await storeSettings({ shippingFee, freeShippingThreshold, contactEmail, contactWhatsapp, contactInstagram });
-  return { success: "Settings saved." };
+  const saved = { shippingFee, freeShippingThreshold, contactEmail, contactWhatsapp, contactInstagram };
+  await storeSettings(saved);
+  return { success: "Settings saved.", saved };
 }
 
 /** The maintenance switch in Settings: on closes the shop to customers; the admin keeps working. */
