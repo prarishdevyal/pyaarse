@@ -203,7 +203,8 @@ export async function createCoupon(_prev: FormState, formData: FormData): Promis
   if (!parsed.success) {
     const errs: Record<string, string> = {};
     for (const i of parsed.error.issues) errs[String(i.path[0])] ??= i.message;
-    return { fieldErrors: errs };
+    // Also say it above the button, in case the problem is in a box that isn't on screen.
+    return { fieldErrors: errs, error: `Couldn't create the coupon: ${parsed.error.issues[0].message}` };
   }
   const { expiresOn, ...c } = parsed.data;
   const exists = await db.query.coupons.findFirst({ where: eq(schema.coupons.code, c.code) });

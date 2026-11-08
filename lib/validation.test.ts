@@ -92,6 +92,11 @@ describe("admin form rules", () => {
 });
 
 describe("couponSchema", () => {
+  it("accepts a rupees-off coupon, whose form has no Max discount box", () => {
+    expect(couponSchema.parse({ code: "flat100", kind: "flat", value: "100", minSubtotal: "", usageLimit: "", expiresOn: "" })).toEqual({
+      code: "FLAT100", kind: "flat", value: 100, minSubtotal: 0, maxDiscount: null, usageLimit: null, expiresOn: "",
+    });
+  });
   const base = { code: " diwali 10 ", kind: "percent", value: "10", minSubtotal: "", maxDiscount: "", usageLimit: "", expiresOn: "" };
   it("normalises the code and fills defaults", () => {
     expect(couponSchema.parse(base)).toEqual({ code: "DIWALI10", kind: "percent", value: 10, minSubtotal: 0, maxDiscount: null, usageLimit: null, expiresOn: "" });

@@ -131,8 +131,9 @@ export const setAdminPasswordSchema = z
   })
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "The passwords don't match" });
 
+// A box that may be left empty, or not be on the form at all (e.g. "Max discount" is hidden for rupees-off coupons).
 const optionalWhole = (msg: string) =>
-  z.string().trim().refine((v) => v === "" || /^\d{1,7}$/.test(v), msg).transform((v) => (v === "" ? null : Number(v)));
+  z.string().trim().default("").refine((v) => v === "" || /^\d{1,7}$/.test(v), msg).transform((v) => (v === "" ? null : Number(v)));
 
 export const couponSchema = z
   .object({
