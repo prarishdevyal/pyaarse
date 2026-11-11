@@ -27,7 +27,7 @@ export default async function HomePage() {
     .map((n) => ({ q: t(`home.faq.${n}.q`), a: t(`home.faq.${n}.a`) }))
     .filter((f) => f.q && f.a);
   const [titleFirst, ...titleRest] = t("home.hero.title").split("\n");
-  const heroImage = heroImageUrl(t(HERO_IMAGE_KEY), process.env.SUPABASE_URL);
+  const heroImage = heroImageUrl(t(HERO_IMAGE_KEY));
 
   return (
     <>

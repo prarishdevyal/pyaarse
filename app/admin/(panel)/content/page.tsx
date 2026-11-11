@@ -38,7 +38,7 @@ export default async function AdminContentPage({ searchParams }: { searchParams:
         </nav>
         <div className="min-w-0 space-y-6">
           {group.id === "home-hero" && (
-            <HeroImageForm current={heroImageUrl(overrides[HERO_IMAGE_KEY], process.env.SUPABASE_URL)} custom={!!overrides[HERO_IMAGE_KEY]} />
+            <HeroImageForm current={heroImageUrl(overrides[HERO_IMAGE_KEY])} custom={!!overrides[HERO_IMAGE_KEY]} />
           )}
           <ContentForm
             key={group.id}

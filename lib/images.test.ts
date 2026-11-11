@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectImageType, isAllowedImageUrl, storedImageName } from "./images";
+import { detectImageType, imagePrefixes, isAllowedImageUrl, movedImageUrl, storedImageName } from "./images";
 
 const bytes = (...b: number[]) => new Uint8Array(b);
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
@@ -17,29 +17,54 @@ describe("detectImageType", () => {
   });
 });
 
+const env = { IMAGE_BASE_URL: "https://img.example.com", SUPABASE_URL: "https://abc.supabase.co" };
+const r2 = "https://img.example.com/0123456789abcdef01234567.webp";
+const old = "https://abc.supabase.co/storage/v1/object/public/product-images/0123456789abcdef01234567.webp";
+
 describe("isAllowedImageUrl", () => {
-  const sb = "https://abc.supabase.co";
-  const good = `${sb}/storage/v1/object/public/product-images/0123456789abcdef01234567.webp`;
-  it("allows placeholders and our bucket", () => {
-    expect(isAllowedImageUrl("/placeholders/product.jpg", sb)).toBe(true);
-    expect(isAllowedImageUrl(good, sb)).toBe(true);
+  it("allows placeholders, R2 uploads and not-yet-moved Supabase uploads", () => {
+    expect(isAllowedImageUrl("/placeholders/product.jpg", env)).toBe(true);
+    expect(isAllowedImageUrl(r2, env)).toBe(true);
+    expect(isAllowedImageUrl(old, env)).toBe(true);
   });
   it("rejects other hosts, buckets and odd names", () => {
-    expect(isAllowedImageUrl("https://evil.example/x.jpg", sb)).toBe(false);
-    expect(isAllowedImageUrl(good.replace("abc.supabase.co", "abc.supabase.co.evil.example"), sb)).toBe(false);
-    expect(isAllowedImageUrl(`${sb}/storage/v1/object/public/other/0123456789abcdef01234567.jpg`, sb)).toBe(false);
-    expect(isAllowedImageUrl(`${sb}/storage/v1/object/public/product-images/../x.jpg`, sb)).toBe(false);
-    expect(isAllowedImageUrl("/placeholders/../.env", sb)).toBe(false);
-    expect(isAllowedImageUrl(good, undefined)).toBe(false);
+    expect(isAllowedImageUrl("https://evil.example/x.jpg", env)).toBe(false);
+    expect(isAllowedImageUrl(r2.replace("img.example.com", "img.example.com.evil.example"), env)).toBe(false);
+    expect(isAllowedImageUrl(old.replace("abc.supabase.co", "abc.supabase.co.evil.example"), env)).toBe(false);
+    expect(isAllowedImageUrl("https://abc.supabase.co/storage/v1/object/public/other/0123456789abcdef01234567.jpg", env)).toBe(false);
+    expect(isAllowedImageUrl("https://img.example.com/../x.jpg", env)).toBe(false);
+    expect(isAllowedImageUrl("https://img.example.com/sub/0123456789abcdef01234567.jpg", env)).toBe(false);
+    expect(isAllowedImageUrl("/placeholders/../.env", env)).toBe(false);
+    expect(isAllowedImageUrl(r2, {})).toBe(false);
+  });
+});
+
+describe("imagePrefixes", () => {
+  it("lists R2 first and tolerates trailing slashes", () => {
+    expect(imagePrefixes({ IMAGE_BASE_URL: "https://img.example.com/", SUPABASE_URL: "https://abc.supabase.co" })).toEqual([
+      "https://img.example.com/",
+      "https://abc.supabase.co/storage/v1/object/public/product-images/",
+    ]);
   });
 });
 
 describe("storedImageName", () => {
-  const supa = "https://abc.supabase.co";
   it("returns the file name for our uploads only", () => {
-    expect(storedImageName(`${supa}/storage/v1/object/public/product-images/0123456789abcdef01234567.webp`, supa)).toBe("0123456789abcdef01234567.webp");
-    expect(storedImageName("/placeholders/product.jpg", supa)).toBeNull();
-    expect(storedImageName("https://evil.example/storage/v1/object/public/product-images/0123456789abcdef01234567.webp", supa)).toBeNull();
-    expect(storedImageName(`${supa}/storage/v1/object/public/product-images/../other.webp`, supa)).toBeNull();
+    expect(storedImageName(r2, env)).toBe("0123456789abcdef01234567.webp");
+    expect(storedImageName(old, env)).toBe("0123456789abcdef01234567.webp");
+    expect(storedImageName("/placeholders/product.jpg", env)).toBeNull();
+    expect(storedImageName("https://evil.example/0123456789abcdef01234567.webp", env)).toBeNull();
+  });
+});
+
+describe("movedImageUrl", () => {
+  it("points old Supabase links at R2", () => {
+    expect(movedImageUrl(old, env)).toBe(r2);
+  });
+  it("leaves everything else alone", () => {
+    expect(movedImageUrl(r2, env)).toBe(r2);
+    expect(movedImageUrl("/placeholders/product.jpg", env)).toBe("/placeholders/product.jpg");
+    expect(movedImageUrl("https://abc.supabase.co/storage/v1/object/public/product-images/../x.jpg", env)).toBe("https://abc.supabase.co/storage/v1/object/public/product-images/../x.jpg");
+    expect(movedImageUrl(old, { SUPABASE_URL: env.SUPABASE_URL })).toBe(old);
   });
 });

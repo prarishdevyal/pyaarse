@@ -31,8 +31,8 @@ describe("site content", () => {
 });
 
 describe("hero image", () => {
-  const supa = "https://abc.supabase.co";
-  const uploaded = `${supa}/storage/v1/object/public/product-images/0123456789abcdef01234567.webp`;
+  const supa = { SUPABASE_URL: "https://abc.supabase.co", IMAGE_BASE_URL: "https://img.example.com" };
+  const uploaded = "https://img.example.com/0123456789abcdef01234567.webp";
   it("uses the uploaded photo, else the original", () => {
     expect(heroImageUrl(uploaded, supa)).toBe(uploaded);
     expect(heroImageUrl(undefined, supa)).toBe(DEFAULT_HERO_IMAGE);

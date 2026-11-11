@@ -251,7 +251,7 @@ const productSchema = z.object({
   isBestseller: z.boolean(),
   isActive: z.boolean(),
   variants: z.array(variantSchema).min(1, "Add at least one variant"),
-  keepImages: z.array(z.string().refine((u) => isAllowedImageUrl(u, process.env.SUPABASE_URL), "Invalid image")),
+  keepImages: z.array(z.string().refine((u) => isAllowedImageUrl(u), "Invalid image")),
 });
 
 export async function saveProduct(_prev: FormState, formData: FormData): Promise<FormState> {

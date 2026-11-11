@@ -10,6 +10,8 @@
 	},
 	"services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "pyaarse" }],
 	"images": { "binding": "IMAGES" },
+	// Product, collection and banner photos. Served publicly (and cached by Cloudflare) at IMAGE_BASE_URL.
+	"r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "pyaarse-images" }],
 	// Cloudflare's database pooler in front of Supabase (session pooler). Local runs use the local test database.
 	"hyperdrive": [
 		{
@@ -22,7 +24,7 @@
 	// Same schedule as the old Vercel Cron (vercel.json): daily at 03:00 UTC.
 	"triggers": { "crons": ["0 3 * * *"] },
 	// Shown in the dashboard; the real values are secrets set with `wrangler secret`.
-	"vars": { "SITE_URL": "https://www.pyaarse.net", "ADMIN_URL": "https://admin.pyaarse.net" },
+	"vars": { "SITE_URL": "https://www.pyaarse.net", "ADMIN_URL": "https://admin.pyaarse.net", "IMAGE_BASE_URL": "https://img.pyaarse.net" },
 	"observability": { "enabled": true },
 	// The shop, the admin and the bare domain (which redirects to www). test.pyaarse.net stays as a spare address.
 	"routes": [

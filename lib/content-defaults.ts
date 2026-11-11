@@ -3,7 +3,7 @@
  * An empty value in the editor means "use the default".
  */
 import { DEFAULT_PRIVACY, DEFAULT_TERMS } from "./legal-defaults";
-import { isAllowedImageUrl } from "./images";
+import { isAllowedImageUrl, type ImageEnv } from "./images";
 
 export type ContentKind = "line" | "text" | "long";
 export type ContentField = { key: string; label: string; kind: ContentKind; default: string; hint?: string };
@@ -288,6 +288,6 @@ export const HERO_IMAGE_KEY = "home.hero.image";
 export const DEFAULT_HERO_IMAGE = "/placeholders/hero.jpg";
 
 /** The uploaded hero photo if it's one of our own images, else the original photo. */
-export function heroImageUrl(stored: string | undefined, supabaseUrl: string | undefined): string {
-  return stored && isAllowedImageUrl(stored, supabaseUrl) ? stored : DEFAULT_HERO_IMAGE;
+export function heroImageUrl(stored: string | undefined, env: ImageEnv = process.env): string {
+  return stored && isAllowedImageUrl(stored, env) ? stored : DEFAULT_HERO_IMAGE;
 }
