@@ -108,19 +108,32 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
           </button>
         </div>
         <p className="text-xs text-taupe">
-          E.g. “100g”, “Box of 4”. To offer choices inside a variant (e.g. fragrances), use <strong>+ Add sub-variant</strong>: each sub-variant (“Box of 4 · Rose”) has its own price and stock, and customers pick the variant first, then the sub-variant.
-          Each row also has an optional packed weight and box size for shipping that only admins see. To put a row on sale, add a sale price: customers see the regular price crossed out.
+          A variant is what customers choose, e.g. “Box of 4” or “Single”. Need choices inside one, like fragrances? Click <strong>+ Add sub-variant</strong> under it:
+          customers then pick “Box of 4”, then “Rose”, and each sub-variant has its own price and stock. To put something on sale, add a sale price. Weight and box size are for shipping and only admins see them.
         </p>
-        <div className="hidden grid-cols-[1fr_1fr_110px_110px_90px_40px] gap-3 text-xs text-taupe sm:grid">
-          <span>Variant</span><span>Sub-variant (optional)</span><span>Price (₹)</span><span>Sale price (₹)</span><span>Stock</span><span />
+        <div className="hidden grid-cols-[1fr_110px_110px_90px_40px] gap-3 text-xs text-taupe sm:grid">
+          <span>Variant</span><span>Price (₹)</span><span>Sale price (₹)</span><span>Stock</span><span />
         </div>
         {variants.map((v, i) => {
           const isSub = i > 0 && !!v.name && variants[i - 1].name === v.name;
+          // The sub-variant box only shows once a variant has sub-variants.
+          const hasSubs = !!v.subName || (!!v.name && variants.filter((w) => w.name === v.name).length > 1);
           return (
           <div key={v.id ?? `new-${i}`} className={isSub ? "border-l-2 border-blush pl-3 sm:ml-4" : "border-t border-sand/40 pt-3 first:border-0 first:pt-0"}>
-          <div className="grid grid-cols-[1fr_auto] gap-3 sm:grid-cols-[1fr_1fr_110px_110px_90px_40px]">
-            <input className="input col-span-2 sm:col-span-1" placeholder="Variant name" aria-label="Variant name" aria-invalid={!!problems[i]} value={v.name} onChange={(e) => renameVariant(i, e.target.value)} />
-            <input className="input col-span-2 sm:col-span-1" placeholder="—" aria-label="Sub-variant name (optional)" aria-invalid={!!problems[i]} value={v.subName ?? ""} onChange={(e) => updateVariant(i, { subName: e.target.value })} />
+          <div className="grid grid-cols-[1fr_auto] gap-3 sm:grid-cols-[1fr_110px_110px_90px_40px]">
+            <div className="col-span-2 flex items-center gap-2 sm:col-span-1">
+              {isSub ? (
+                <span className="shrink-0 text-sm text-taupe">{v.name} ·</span>
+              ) : (
+                <input className="input min-w-0 flex-1" placeholder="Variant name, e.g. Box of 4" aria-label="Variant name" aria-invalid={!!problems[i]} value={v.name} onChange={(e) => renameVariant(i, e.target.value)} />
+              )}
+              {hasSubs && (
+                <>
+                  {!isSub && <span className="shrink-0 text-sm text-taupe">·</span>}
+                  <input className="input min-w-0 flex-1" placeholder="Sub-variant, e.g. Rose" aria-label={`Sub-variant of ${v.name || "this variant"}`} aria-invalid={!!problems[i]} value={v.subName ?? ""} onChange={(e) => updateVariant(i, { subName: e.target.value })} />
+                </>
+              )}
+            </div>
             <div className="col-span-2 grid grid-cols-[1fr_1fr_1fr_40px] gap-3 sm:contents">
               <input className="input" type="number" min={1} step={1} aria-label="Price" aria-invalid={!!problems[i]} value={v.price} onChange={(e) => updateVariant(i, { price: Math.trunc(Number(e.target.value)) })} />
               <input
@@ -161,7 +174,7 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
           {problems[i] && <p className="mt-1 text-xs text-brand" role="alert">{problems[i]}</p>}
           {(i === variants.length - 1 || variants[i + 1].name !== v.name || !v.name) && (
             <button type="button" className="mt-2 text-xs text-brand underline underline-offset-4 disabled:opacity-40" disabled={!v.name.trim()} onClick={() => addSubVariant(i)}>
-              + Add sub-variant{v.name.trim() ? ` to ${v.name.trim()}` : ""}
+              + Add sub-variant{v.name.trim() ? ` to ${v.name.trim()}` : ""} (e.g. a fragrance)
             </button>
           )}
           </div>
