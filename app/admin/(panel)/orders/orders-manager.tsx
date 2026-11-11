@@ -193,7 +193,7 @@ export function OrdersManager({ orders }: { orders: ManagedOrder[] }) {
                   />
                 </td>
                 <td className="px-3 py-3">
-                  <Link href={`/orders/${o.id}`} className="font-medium text-brand hover:underline">{o.orderNumber}</Link>
+                  <Link href={`/orders/${o.id}`} target="_blank" rel="noopener" className="font-medium text-brand hover:underline">{o.orderNumber}</Link>
                   {isNewOrder(o.createdAt) && <span className="ml-2 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-medium uppercase text-white">New</span>}
                 </td>
                 <td className="px-3 py-3">{o.customerName}<div className="text-xs text-taupe">{o.phone}</div></td>
@@ -344,7 +344,7 @@ function OrderDetails({ order }: { order: ManagedOrder }) {
         ) : (
           <p className="text-taupe">Not shipped yet</p>
         )}
-        <Link href={`/orders/${order.id}`} className="mt-3 inline-block text-brand underline underline-offset-4">Open full order</Link>
+        <Link href={`/orders/${order.id}`} target="_blank" rel="noopener" className="mt-3 inline-block text-brand underline underline-offset-4">Open full order ↗</Link>
       </div>
     </div>
   );
