@@ -4,7 +4,6 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { VerifiedNotice } from "@/components/verified-notice";
 import { Suspense } from "react";
-import { Analytics } from "@vercel/analytics/next";
 import { getCurrentUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { storeContact } from "@/lib/store";
@@ -37,7 +36,6 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
         </Suspense>
         <main className="min-h-[60vh]">{children}</main>
         <SiteFooter tagline={t("footer.tagline")} contact={contact} />
-        <Analytics />
       </WishlistProvider>
     </CartProvider>
     </SiteTextProvider>

@@ -1,0 +1,34 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"main": "worker.ts",
+	"name": "pyaarse",
+	"compatibility_date": "2026-11-01",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "pyaarse" }],
+	"images": { "binding": "IMAGES" },
+	// Cloudflare's database pooler in front of Supabase (session pooler). Local runs use the local test database.
+	"hyperdrive": [
+		{
+			"binding": "HYPERDRIVE",
+			"id": "6312411f19a54175ad6cfc80b3ab81f6",
+			"localConnectionString": "postgres://postgres:pw@127.0.0.1:55434/postgres"
+		}
+	],
+	"workers_dev": false,
+	// Same schedule as the old Vercel Cron (vercel.json): daily at 03:00 UTC.
+	"triggers": { "crons": ["0 3 * * *"] },
+	// Shown in the dashboard; the real values are secrets set with `wrangler secret`.
+	"vars": { "SITE_URL": "https://www.pyaarse.net", "ADMIN_URL": "https://admin.pyaarse.net" },
+	"observability": { "enabled": true },
+	// The shop, the admin and the bare domain (which redirects to www). test.pyaarse.net stays as a spare address.
+	"routes": [
+		{ "pattern": "www.pyaarse.net", "custom_domain": true },
+		{ "pattern": "admin.pyaarse.net", "custom_domain": true },
+		{ "pattern": "pyaarse.net", "custom_domain": true },
+		{ "pattern": "test.pyaarse.net", "custom_domain": true }
+	]
+}

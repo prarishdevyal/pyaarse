@@ -12,3 +12,8 @@ next-env.d.ts
 
 # Handover guide (private, not for the public repo)
 /Pyaarse-Shop-and-Admin-Guide.pdf
+
+# Cloudflare (OpenNext) build output and local secrets
+.open-next/
+.wrangler/
+.dev.vars*
