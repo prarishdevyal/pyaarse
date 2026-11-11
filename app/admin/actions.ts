@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
-import { userFromClaims } from "@/lib/auth-claims";
+import { checkAdminPassword, endAdminSession, startAdminSession } from "@/lib/admin-auth";
 import { isAllowedImageUrl } from "@/lib/images";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { clientIp, limits, TOO_MANY } from "@/lib/limits";
@@ -34,14 +34,10 @@ export async function adminLogin(_prev: FormState, formData: FormData): Promise<
   if (!parsed.success) return { error: "Please enter your email and password." };
   const ipOk = await limits.adminLoginByIp.hit(await clientIp());
   if (!ipOk || !await limits.adminLoginByEmail.hit(parsed.data.email)) return { error: TOO_MANY };
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
-  const user = data.session ? userFromClaims({ sub: data.user?.id, email: data.user?.email, app_metadata: data.user?.app_metadata }) : null;
-  if (error || user?.role !== "admin") {
-    // Customers can't hold a session on the admin host.
-    if (data.session) await supabase.auth.signOut({ scope: "local" });
-    return { error: "Incorrect email or password." };
-  }
+  // Checked against the database directly, not Supabase's login service (see lib/admin-auth.ts).
+  const user = await checkAdminPassword(parsed.data.email, parsed.data.password);
+  if (!user) return { error: "Incorrect email or password." };
+  await startAdminSession(user.id);
   redirect("/");
 }
 
@@ -64,6 +60,9 @@ export async function completeAdminInvite(_prev: FormState, formData: FormData):
   }
   const { error: pwError } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (pwError) return { error: pwError.message };
+  // The admin uses its own session; the Supabase one was only needed to set the password.
+  await supabase.auth.signOut({ scope: "local" });
+  await startAdminSession(data.user.id);
   redirect("/");
 }
 
@@ -85,8 +84,7 @@ export async function adminRequestPasswordReset(_prev: FormState, formData: Form
 }
 
 export async function adminLogout() {
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut({ scope: "local" });
+  await endAdminSession();
   redirect("/login");
 }
 

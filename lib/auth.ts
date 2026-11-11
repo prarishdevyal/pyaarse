@@ -2,6 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { userFromClaims, type CurrentUser } from "./auth-claims";
 import { createSupabaseServerClient } from "./supabase/server";
+import { currentAdmin } from "./admin-auth";
 
 export type { CurrentUser };
 
@@ -12,9 +13,9 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   return userFromClaims(data?.claims);
 }
 
-/** For admin pages and actions. Paths are relative to the admin subdomain. */
+/** For admin pages and actions: the admin's own signed session (lib/admin-auth.ts), not Supabase's. Paths are relative to the admin subdomain. */
 export async function requireAdmin(): Promise<CurrentUser> {
-  const user = await getCurrentUser();
-  if (!user || user.role !== "admin") redirect("/login");
+  const user = await currentAdmin();
+  if (!user) redirect("/login");
   return user;
 }
