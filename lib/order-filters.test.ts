@@ -26,6 +26,10 @@ describe("ordersHref", () => {
 it("escapes LIKE wildcards in a search", () => expect(likePattern("50%_off")).toBe("%50\\%\\_off%"));
 
 describe("cardTotals", () => {
+  it("leaves cancelled orders out of All", () => {
+    const cards = cardTotals([{ status: "paid", n: 1, total: 500 }, { status: "cancelled", n: 9, total: 9000 }]);
+    expect(cards.find((c) => c.label === "All orders")).toMatchObject({ n: 1, total: 500 });
+  });
   it("adds up All and fills missing statuses with zero", () => {
     const cards = cardTotals([
       { status: "paid", n: 2, total: 1000 },
@@ -33,7 +37,7 @@ describe("cardTotals", () => {
     ]);
     expect(cards.find((c) => c.label === "All orders")).toMatchObject({ n: 3, total: 1500 });
     expect(cards.find((c) => c.label === "Processing")).toMatchObject({ n: 2, total: 1000 });
-    expect(cards.find((c) => c.label === "Cancelled")).toMatchObject({ n: 0, total: 0 });
+    expect(cards.find((c) => c.label === "Cancelled")).toBeUndefined();
   });
 });
 
@@ -43,6 +47,7 @@ describe("statusesMatching", () => {
     expect(statusesMatching("processing")).toEqual(["paid"]);
     expect(statusesMatching("deliv")).toEqual(["delivered"]);
     expect(statusesMatching("awaiting")).toEqual(["pending_payment"]);
+    expect(statusesMatching("cancelled")).toEqual(["cancelled"]);
   });
   it("ignores short or unrelated words", () => {
     expect(statusesMatching("pa")).toEqual([]);

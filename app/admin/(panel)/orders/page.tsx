@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { releaseExpiredOrders } from "@/lib/orders";
 import { requireAdmin } from "@/lib/auth";
-import { and, count, desc, eq, gte, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, ne, or, sql, type SQL } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { formatINR } from "@/lib/format";
 import { cardTotals, likePattern, ordersHref, parseOrderFilters, rangeStart, statusesMatching } from "@/lib/order-filters";
@@ -35,7 +35,8 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
       )!,
     );
   }
-  const listWhere = and(...scope, ...(f.status ? [eq(orders.status, f.status)] : []));
+  // "All orders" leaves cancelled ones out; they're one click away under the cards.
+  const listWhere = and(...scope, f.status ? eq(orders.status, f.status) : ne(orders.status, "cancelled"));
 
   const [rows, perStatus] = await Promise.all([
     db.select().from(orders).where(listWhere).orderBy(desc(orders.createdAt)).limit(200),
@@ -45,7 +46,21 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
       .where(and(...scope))
       .groupBy(orders.status),
   ]);
+  // Quick details for each listed order: items and online payment, two queries for the whole list.
+  const ids = rows.map((r) => r.id);
+  const [items, pays] = ids.length
+    ? await Promise.all([
+        db.select().from(schema.orderItems).where(inArray(schema.orderItems.orderId, ids)),
+        db.select().from(schema.payments).where(inArray(schema.payments.orderId, ids)),
+      ])
+    : [[], []];
+  const itemsOf = (id: number) => items.filter((i) => i.orderId === id).map((i) => ({ name: `${i.productName} (${i.variantName})`, quantity: i.quantity, unitPrice: i.unitPrice }));
+  const payOf = (id: number) => {
+    const p = pays.find((x) => x.orderId === id);
+    return p ? { status: p.status, method: p.method, test: p.mode === "sandbox" } : null;
+  };
   const cards = cardTotals(perStatus);
+  const cancelledCount = Number(perStatus.find((r) => r.status === "cancelled")?.n ?? 0);
 
   return (
     <div className="space-y-6">
@@ -54,7 +69,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
         <LiveRefresh />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {cards.map((c) => {
           const active = f.status === c.status;
           return (
@@ -72,13 +87,46 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
         })}
       </div>
 
+      <p className="-mt-3 text-sm">
+        {f.status === "cancelled" ? (
+          <span className="text-taupe">
+            Showing cancelled orders. <Link href={ordersHref(f, { status: null })} className="text-brand underline underline-offset-4">Back to all orders</Link>
+          </span>
+        ) : (
+          <Link href={ordersHref(f, { status: "cancelled" })} className="text-taupe underline underline-offset-4 hover:text-brand">
+            Show cancelled orders ({cancelledCount})
+          </Link>
+        )}
+      </p>
+
       <OrderFiltersForm filters={f} />
 
       {rows.length === 0 && (f.status || f.q || f.range !== "all") ? (
         <p className="py-8 text-center text-taupe">No orders match these filters.</p>
       ) : (
         <OrdersManager
-          orders={rows.map((r) => ({ id: r.id, orderNumber: r.orderNumber, customerName: r.customerName, phone: r.phone, total: r.total, status: r.status, createdAt: r.createdAt, adminNote: r.adminNote }))}
+          orders={rows.map((r) => ({
+            id: r.id,
+            orderNumber: r.orderNumber,
+            customerName: r.customerName,
+            phone: r.phone,
+            total: r.total,
+            status: r.status,
+            createdAt: r.createdAt,
+            adminNote: r.adminNote,
+            details: {
+              email: r.email,
+              address: `${r.addressLine}, ${r.city}, ${r.state} – ${r.pincode}`,
+              customerNote: r.notes,
+              items: itemsOf(r.id),
+              subtotal: r.subtotal,
+              discount: r.discount,
+              couponCode: r.couponCode,
+              shipping: r.shipping,
+              trackingNumber: r.trackingNumber,
+              payment: payOf(r.id),
+            },
+          }))}
         />
       )}
       {rows.length === 200 && <p className="text-center text-xs text-taupe">Showing the latest 200. Narrow the search or dates to see older ones.</p>}

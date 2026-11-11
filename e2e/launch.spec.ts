@@ -47,7 +47,6 @@ test("customer places an order", async ({ page }) => {
   await page.getByLabel("State").selectOption("Maharashtra");
   await page.getByLabel("City").selectOption({ index: 1 });
   await page.getByLabel("Pincode").fill("411001");
-  await page.getByLabel(/Order notes/).fill("Automated launch check. This order is cancelled automatically.");
   await expect(page.getByText("Total")).toBeVisible();
   await page.getByRole("button", { name: /^Place order/ }).click();
 

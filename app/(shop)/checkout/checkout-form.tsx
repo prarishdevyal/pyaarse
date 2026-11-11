@@ -216,11 +216,6 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
               </>
             )}
           </FormField>
-          <div className="sm:col-span-2">
-            <FormField id="notes" label="Order notes" optional error={v.error("notes")}>
-              <textarea id="notes" name="notes" rows={3} maxLength={500} className="input" placeholder="Gift message, delivery instructions…" {...v.bind} />
-            </FormField>
-          </div>
         </fieldset>
       </div>
 

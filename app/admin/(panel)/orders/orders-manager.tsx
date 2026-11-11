@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/status-badge";
-import { formatDateTime, formatINR, STATUS_LABELS } from "@/lib/format";
+import { formatDateTime, formatINR, STATUS_LABELS, toWhatsAppNumber } from "@/lib/format";
+import { delhiveryTrackingUrl } from "@/lib/tracking";
 import type { OrderStatus } from "@/lib/db/schema";
 import { ADMIN_NOTE_MAX } from "@/lib/order-note";
 import { isNewOrder } from "@/lib/live";
@@ -22,6 +23,19 @@ export type ManagedOrder = {
   status: OrderStatus;
   createdAt: Date;
   adminNote: string;
+  /** Shown when the row is opened. */
+  details: {
+    email: string;
+    address: string;
+    customerNote: string;
+    items: { name: string; quantity: number; unitPrice: number }[];
+    subtotal: number;
+    discount: number;
+    couponCode: string | null;
+    shipping: number;
+    trackingNumber: string | null;
+    payment: { status: string; method: string | null; test: boolean } | null;
+  };
 };
 
 /** What happens when an order moves to this status, said before it happens. */
@@ -45,6 +59,15 @@ export function OrdersManager({ orders }: { orders: ManagedOrder[] }) {
   const [confirming, setConfirming] = useState<{ ids: number[]; to: OrderStatus } | null>(null);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const [pending, start] = useTransition();
+  const [open, setOpen] = useState<Set<number>>(new Set());
+  const allOpen = orders.length > 0 && orders.every((o) => open.has(o.id));
+  const toggleOpen = (id: number) =>
+    setOpen((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const changeable = useMemo(() => orders.filter((o) => o.status !== "cancelled").map((o) => o.id), [orders]);
   // Only orders still on screen (and still changeable) count, e.g. after a filter or a cancel.
@@ -115,10 +138,17 @@ export function OrdersManager({ orders }: { orders: ManagedOrder[] }) {
         </div>
       )}
 
+      <div className="flex justify-end">
+        <button type="button" onClick={() => setOpen(allOpen ? new Set() : new Set(orders.map((o) => o.id)))} className="text-sm text-brand underline underline-offset-4">
+          {allOpen ? "Collapse all details" : "Expand all details"}
+        </button>
+      </div>
+
       <div className="card overflow-x-auto bg-white">
         <table className="w-full text-sm">
           <thead className="border-b border-sand/60 text-left text-taupe">
             <tr>
+              <th className="w-8 px-2 py-3"><span className="sr-only">Details</span></th>
               <th className="w-10 px-3 py-3">
                 <input
                   type="checkbox"
@@ -138,7 +168,20 @@ export function OrdersManager({ orders }: { orders: ManagedOrder[] }) {
           </thead>
           <tbody>
             {orders.map((o) => (
-              <tr key={o.id} className={`border-b border-sand/30 last:border-0 align-top ${selected.has(o.id) ? "bg-blush/50" : "hover:bg-blush/30"}`}>
+              <Fragment key={o.id}>
+              <tr className={`align-top ${open.has(o.id) ? "" : "border-b border-sand/30"} ${selected.has(o.id) ? "bg-blush/50" : "hover:bg-blush/30"}`}>
+                <td className="px-2 py-3">
+                  <button
+                    type="button"
+                    onClick={() => toggleOpen(o.id)}
+                    aria-expanded={open.has(o.id)}
+                    aria-controls={`details-${o.id}`}
+                    aria-label={`${open.has(o.id) ? "Hide" : "Show"} details of ${o.orderNumber}`}
+                    className="rounded p-1 text-taupe hover:bg-blush hover:text-brand"
+                  >
+                    <span aria-hidden className={`inline-block transition-transform motion-reduce:transition-none ${open.has(o.id) ? "rotate-90" : ""}`}>▸</span>
+                  </button>
+                </td>
                 <td className="px-3 py-3">
                   <input
                     type="checkbox"
@@ -159,6 +202,12 @@ export function OrdersManager({ orders }: { orders: ManagedOrder[] }) {
                 <td className="px-3 py-3"><RowStatus order={o} busy={pending} onChange={(to) => askRow(o, to)} /></td>
                 <td className="px-3 py-3"><NoteCell order={o} /></td>
               </tr>
+              {open.has(o.id) && (
+                <tr id={`details-${o.id}`} className="border-b border-sand/30 bg-[#fbf8f3]">
+                  <td colSpan={8} className="px-4 pb-4 pt-1"><OrderDetails order={o} /></td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -239,6 +288,64 @@ function NoteCell({ order }: { order: ManagedOrder }) {
         <button type="button" className="text-taupe underline underline-offset-4" onClick={() => { setDraft(note); setEditing(false); }}>Cancel</button>
       </div>
       {error && <p className="text-xs text-brand" role="alert">{error}</p>}
+    </div>
+  );
+}
+
+/** The quick look under a row: what was ordered, where it goes, how it was paid and where it is. */
+function OrderDetails({ order }: { order: ManagedOrder }) {
+  const d = order.details;
+  const payment = d.payment
+    ? d.payment.status === "created"
+      ? "Online payment started, not completed"
+      : `Paid online${d.payment.method ? ` by ${d.payment.method.replace(/_/g, " ")}` : ""}${d.payment.test ? " (test mode, no real money)" : ""}`
+    : order.status === "pending_payment" || order.status === "cancelled"
+      ? "Not paid"
+      : "Marked paid by hand";
+  return (
+    <div className="grid gap-5 text-sm sm:grid-cols-2 lg:grid-cols-3">
+      <div>
+        <p className="mb-1 font-medium">Items</p>
+        <ul className="space-y-1">
+          {d.items.map((i, n) => (
+            <li key={n} className="flex justify-between gap-3">
+              <span>{i.name} × {i.quantity}</span>
+              <span className="tabular-nums">{formatINR(i.unitPrice * i.quantity)}</span>
+            </li>
+          ))}
+        </ul>
+        <dl className="mt-2 space-y-0.5 border-t border-sand/60 pt-2 text-taupe">
+          <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatINR(d.subtotal)}</dd></div>
+          {d.discount > 0 && <div className="flex justify-between text-[#1f8f4e]"><dt>Discount{d.couponCode ? ` (${d.couponCode})` : ""}</dt><dd>−{formatINR(d.discount)}</dd></div>}
+          <div className="flex justify-between"><dt>Shipping</dt><dd>{d.shipping ? formatINR(d.shipping) : "Free"}</dd></div>
+          <div className="flex justify-between font-medium text-charcoal"><dt>Total</dt><dd>{formatINR(order.total)}</dd></div>
+        </dl>
+      </div>
+      <div>
+        <p className="mb-1 font-medium">Ship to</p>
+        <p>{order.customerName}</p>
+        <p className="text-charcoal/80">{d.address}</p>
+        <p className="mt-2">
+          <a href={`https://wa.me/${toWhatsAppNumber(order.phone)}`} target="_blank" rel="noreferrer" className="text-[#1f8f4e] underline underline-offset-4">{order.phone}</a>
+          <span className="text-taupe"> · </span>
+          <a href={`mailto:${d.email}`} className="underline underline-offset-4">{d.email}</a>
+        </p>
+        {d.customerNote && <p className="mt-2"><span className="text-taupe">Customer note:</span> {d.customerNote}</p>}
+      </div>
+      <div>
+        <p className="mb-1 font-medium">Payment</p>
+        <p className={d.payment?.test ? "text-amber-800" : ""}>{payment}</p>
+        <p className="mb-1 mt-3 font-medium">Shipping</p>
+        {d.trackingNumber ? (
+          <p>
+            AWB <span className="select-all">{d.trackingNumber}</span>{" "}
+            <a href={delhiveryTrackingUrl(d.trackingNumber)} target="_blank" rel="noreferrer" className="text-brand underline underline-offset-4">Track</a>
+          </p>
+        ) : (
+          <p className="text-taupe">Not shipped yet</p>
+        )}
+        <Link href={`/orders/${order.id}`} className="mt-3 inline-block text-brand underline underline-offset-4">Open full order</Link>
+      </div>
     </div>
   );
 }
