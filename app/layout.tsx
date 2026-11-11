@@ -10,6 +10,9 @@ const cormorant = Cormorant_Garamond({
 });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
 
+// Every page reads live data (site text, settings, stock), so nothing is pre-built: the build then needs no database.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: { default: "Pyaarse — Handcrafted Candles", template: "%s · Pyaarse" },
   description: "Handcrafted candles to make your moments warmer, calmer and more meaningful.",
