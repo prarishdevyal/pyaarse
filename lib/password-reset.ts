@@ -1,6 +1,7 @@
 import "server-only";
 import { supabaseAdmin } from "./supabase/admin";
 import { buildPasswordResetEmail, sendEmail } from "./notify/email";
+import { AuthOutageError, isAuthOutage } from "./auth-outage";
 
 /**
  * Emails a one-time "choose a new password" link that works on any device (our own page verifies it).
@@ -8,6 +9,7 @@ import { buildPasswordResetEmail, sendEmail } from "./notify/email";
  */
 export async function sendPasswordResetLink(email: string, opts: { base: string; path: string; adminOnly?: boolean }): Promise<void> {
   const { data, error } = await supabaseAdmin().auth.admin.generateLink({ type: "recovery", email });
+  if (isAuthOutage(error)) throw new AuthOutageError();
   if (error || !data.user) return;
   if (opts.adminOnly && data.user.app_metadata?.role !== "admin") return;
   const link = `${opts.base.replace(/\/+$/, "")}${opts.path}?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=recovery`;

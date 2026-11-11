@@ -13,6 +13,7 @@ import { couponDiscount, normalizeCode, totalsWithDiscount } from "@/lib/discoun
 import { getShippingSettings } from "@/lib/settings";
 import { cartItemsSchema, checkoutSchema, contactSchema, forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema, trackOrderSchema } from "@/lib/validation";
 import { resetSentMessage, sendPasswordResetLink } from "@/lib/password-reset";
+import { ACCOUNTS_UNAVAILABLE, AuthOutageError, isAuthOutage } from "@/lib/auth-outage";
 import { buildContactTelegramMessage, sendTelegram } from "@/lib/notify/telegram";
 import { safeNext } from "@/lib/redirect";
 import { siteUrl } from "@/lib/hosts";
@@ -113,6 +114,7 @@ export async function register(_prev: FormState, formData: FormData): Promise<Fo
     password,
     options: { data: { name }, emailRedirectTo: `${site}/auth/confirm?next=${encodeURIComponent(next)}` },
   });
+  if (isAuthOutage(error)) return { error: ACCOUNTS_UNAVAILABLE };
   if (error) return { error: error.code === "weak_password" ? error.message : "Could not create your account. Please try again." };
   // With email confirmation on, Supabase returns the same response for new and existing emails.
   if (!data.session) return { success: `Check ${email} for a link to confirm your account.` };
@@ -126,6 +128,7 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   if (!ipOk || !await limits.loginByEmail.hit(parsed.data.email)) return { error: TOO_MANY };
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  if (isAuthOutage(error)) return { error: ACCOUNTS_UNAVAILABLE };
   if (error) {
     return { error: error.code === "email_not_confirmed" ? "Please confirm your email first — check your inbox." : "Incorrect email or password." };
   }
@@ -140,6 +143,7 @@ export async function requestPasswordReset(_prev: FormState, formData: FormData)
   try {
     await sendPasswordResetLink(parsed.data.email, { base: siteUrl(), path: "/reset-password" });
   } catch (e) {
+    if (e instanceof AuthOutageError) return { error: ACCOUNTS_UNAVAILABLE };
     console.error("[password reset]", e);
     return { error: "We couldn't send the email just now. Please try again in a few minutes." };
   }
@@ -156,6 +160,7 @@ export async function resetPassword(_prev: FormState, formData: FormData): Promi
   if (!await limits.resetByIp.hit(await clientIp())) return { error: TOO_MANY };
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.verifyOtp({ token_hash: parsed.data.token_hash, type: "recovery" });
+  if (isAuthOutage(error)) return { error: ACCOUNTS_UNAVAILABLE };
   if (error) return { error: "This link has expired or was already used. Ask for a new one." };
   const { error: pwError } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (pwError) return { error: pwError.code === "same_password" ? "That's your current password. Choose a different one." : pwError.message };
