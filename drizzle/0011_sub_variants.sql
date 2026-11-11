@@ -1,0 +1,1 @@
+ALTER TABLE "product_variants" ADD COLUMN "sub_name" text DEFAULT '' NOT NULL;

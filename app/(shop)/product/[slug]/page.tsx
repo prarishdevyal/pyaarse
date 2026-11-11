@@ -29,7 +29,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <h1 className="font-serif text-4xl text-brand sm:text-5xl">{product.name}</h1>
           <AddToCart
             product={{ id: product.id, name: product.name, slug: product.slug, image: product.images[0] }}
-            variants={product.variants.map((v) => ({ id: v.id, name: v.name, price: v.price, compareAtPrice: v.compareAtPrice, stock: v.stock }))}
+            variants={product.variants.map((v) => ({ id: v.id, name: v.name, subName: v.subName, price: v.price, compareAtPrice: v.compareAtPrice, stock: v.stock }))}
           />
           {product.description && (
             <div className="mt-10 border-t border-sand/70 pt-6">

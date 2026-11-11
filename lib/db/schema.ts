@@ -28,6 +28,8 @@ export const productVariants = pgTable("product_variants", {
     .notNull()
     .references(() => products.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  /** Sub-variant, e.g. "Rose" under "Box of 4"; empty when the variant has none. Each sub-variant is its own row (own price and stock). */
+  subName: text("sub_name").notNull().default(""),
   /** What the customer pays. */
   price: integer("price").notNull(),
   /** Regular price when the variant is on sale (shown crossed out); null when not on sale. */

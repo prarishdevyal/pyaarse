@@ -78,6 +78,13 @@
       "when": 1794063580168,
       "tag": "0010_pay_by",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794390374067,
+      "tag": "0011_sub_variants",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db, schema } from "./db";
+import { variantLabelSql } from "./variants-sql";
 import { PRODUCT_PLACEHOLDER } from "./catalog";
 
 const { products, productVariants, orders, orderItems } = schema;
@@ -30,7 +31,7 @@ export async function getStockRows(): Promise<StockRow[]> {
       variantId: productVariants.id,
       productId: products.id,
       name: products.name,
-      option: productVariants.name,
+      option: variantLabelSql,
       images: products.images,
       stock: productVariants.stock,
       visible: products.isActive,

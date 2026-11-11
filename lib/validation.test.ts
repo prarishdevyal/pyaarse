@@ -134,3 +134,19 @@ describe("settingsSchema contact details", () => {
     expect(settingsSchema.safeParse({ ...base, contactInstagram: "bad handle!" }).success).toBe(false);
   });
 });
+
+describe("sub-variants", () => {
+  const v = (name: string, subName = "") => ({ name, subName, price: 499, salePrice: null, stock: 3 });
+  it("allows a variant to split into named sub-variants", () => {
+    expect(variantProblems([v("Box of 4", "Rose"), v("Box of 4", "Oud"), v("Single")])).toEqual({});
+  });
+  it("needs a sub-variant name once a variant has more than one", () => {
+    expect(variantProblems([v("Box of 4", "Rose"), v("Box of 4")])[1]).toMatch(/sub-variant name/);
+  });
+  it("refuses two sub-variants with the same name", () => {
+    expect(variantProblems([v("Box of 4", "Rose"), v("box of 4", "rose")])[1]).toBe("Two sub-variants have the same name.");
+  });
+  it("still refuses two plain variants with the same name", () => {
+    expect(variantProblems([v("Single"), v("Single")])[1]).toMatch(/sub-variant name|same name/);
+  });
+});

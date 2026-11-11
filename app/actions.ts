@@ -3,6 +3,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { db, schema } from "@/lib/db";
+import { variantLabelSql } from "@/lib/variants-sql";
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getProductCards, type ProductCard } from "@/lib/catalog";
@@ -45,7 +46,7 @@ export async function quoteCart(input: CartLine[], couponCode = "") {
       id: schema.productVariants.id,
       productId: schema.productVariants.productId,
       productName: schema.products.name,
-      variantName: schema.productVariants.name,
+      variantName: variantLabelSql,
       price: schema.productVariants.price,
       compareAtPrice: schema.productVariants.compareAtPrice,
       stock: schema.productVariants.stock,

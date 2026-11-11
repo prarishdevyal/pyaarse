@@ -37,7 +37,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         initial={{ ...product, variants: variants.map((v) => {
           const { regular, sale } = fromStoredPrices(v);
           return {
-            id: v.id, name: v.name, price: regular, salePrice: sale, stock: v.stock,
+            id: v.id, name: v.name, subName: v.subName, price: regular, salePrice: sale, stock: v.stock,
             weightGrams: v.weightGrams, lengthCm: v.lengthCm, widthCm: v.widthCm, heightCm: v.heightCm,
           };
         }) }}

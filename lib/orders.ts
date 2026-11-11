@@ -1,6 +1,7 @@
 import "server-only";
 import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { db, schema } from "./db";
+import { variantLabelSql } from "./variants-sql";
 import { orderNumberFor } from "./format";
 import { payWindowEnd } from "./order-expiry";
 import { canChangeStatus, shouldRestock } from "./order-status";
@@ -93,7 +94,7 @@ export async function placeOrder(
           id: productVariants.id,
           productId: productVariants.productId,
           productName: products.name,
-          variantName: productVariants.name,
+          variantName: variantLabelSql,
           price: productVariants.price,
           compareAtPrice: productVariants.compareAtPrice,
           stock: productVariants.stock,

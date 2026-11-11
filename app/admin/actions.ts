@@ -233,6 +233,7 @@ export async function deleteCoupon(formData: FormData) {
 const variantSchema = z.object({
   id: z.number().int().positive().optional(),
   name: z.string().trim().min(1, "Variant name is required"),
+  subName: z.string().trim().max(60).optional().default(""),
   price: z.number().int().min(0, "Price can't be negative"),
   salePrice: z.number().int().min(1).nullable().optional().default(null),
   stock: z.number().int().min(0, "Stock can't be negative"),
@@ -316,6 +317,7 @@ export async function saveProduct(_prev: FormState, formData: FormData): Promise
     for (const [sortOrder, v] of data.variants.entries()) {
       const row = {
         name: v.name,
+        subName: v.subName,
         ...toStoredPrices(v.price, v.salePrice),
         stock: v.stock,
         sortOrder,

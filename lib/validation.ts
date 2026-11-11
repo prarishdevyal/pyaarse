@@ -95,7 +95,7 @@ export const productFieldsSchema = z.object({
 
 /** Problems with the variant rows, keyed by row index (empty = all fine). */
 export function variantProblems(
-  variants: ({ name: string; price: number; salePrice?: number | null; stock: number } & Partial<PackageInfo>)[],
+  variants: ({ name: string; subName?: string; price: number; salePrice?: number | null; stock: number } & Partial<PackageInfo>)[],
 ): Record<number, string> {
   const out: Record<number, string> = {};
   variants.forEach((v, i) => {
@@ -108,9 +108,16 @@ export function variantProblems(
       if (pkg) out[i] = pkg;
     }
   });
-  const names = variants.map((v) => v.name.trim().toLowerCase());
-  names.forEach((n, i) => {
-    if (n && names.indexOf(n) !== i && !out[i]) out[i] = "Two variants have the same name.";
+  // A variant name used more than once must split into named sub-variants (e.g. Box of 4 · Rose, Box of 4 · Oud).
+  const name = (v: (typeof variants)[number]) => v.name.trim().toLowerCase();
+  const sub = (v: (typeof variants)[number]) => (v.subName ?? "").trim().toLowerCase();
+  variants.forEach((v, i) => {
+    if (out[i] || !name(v)) return;
+    const group = variants.filter((w) => name(w) === name(v));
+    const shared = group.length > 1;
+    const usesSubs = group.some((w) => sub(w));
+    if (shared && !sub(v) && usesSubs) out[i] = `"${v.name.trim()}" has sub-variants, so give this one a sub-variant name, e.g. Rose.`;
+    else if (variants.findIndex((w) => name(w) === name(v) && sub(w) === sub(v)) !== i) out[i] = usesSubs ? "Two sub-variants have the same name." : "Two variants have the same name.";
   });
   return out;
 }

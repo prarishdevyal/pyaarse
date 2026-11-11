@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { variantLabel } from "@/lib/variants";
 import { requireAdmin } from "@/lib/auth";
 import { asc, desc, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
@@ -52,7 +53,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                       {p.isBestseller && <span className="ml-2 rounded bg-blush px-2 py-0.5 text-xs text-brand">Bestseller</span>}
                     </p>
                     <p className="truncate text-xs text-taupe">
-                      {collection ?? "No collection"} · {vs.map((v) => `${v.name} ${formatINR(v.price)} (${v.stock})`).join(" · ") || "No variants"}
+                      {collection ?? "No collection"} · {vs.map((v) => `${variantLabel(v.name, v.subName)} ${formatINR(v.price)} (${v.stock})`).join(" · ") || "No variants"}
                     </p>
                   </div>
                 </Link>

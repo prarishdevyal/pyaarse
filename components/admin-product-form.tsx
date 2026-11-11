@@ -14,6 +14,8 @@ import { ImageFileInput, type ImageInputState } from "./image-file-input";
 type Variant = {
   id?: number;
   name: string;
+  /** Optional sub-variant (e.g. Rose under Box of 4), with its own price and stock. */
+  subName?: string;
   price: number;
   salePrice: number | null;
   stock: number;
@@ -49,6 +51,21 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
   };
 
   const updateVariant = (i: number, patch: Partial<Variant>) => setVariants((vs) => vs.map((v, j) => (j === i ? { ...v, ...patch } : v)));
+  /** Renaming a variant that has sub-variants renames all of them, so they stay together. */
+  const renameVariant = (i: number, name: string) =>
+    setVariants((vs) => {
+      const old = vs[i].name;
+      const grouped = vs.filter((v) => v.name === old).length > 1;
+      return vs.map((v, j) => (j === i || (grouped && v.name === old) ? { ...v, name } : v));
+    });
+  /** A new sub-variant goes right after the last one of its variant, starting from the same price and box size. */
+  const addSubVariant = (i: number) =>
+    setVariants((vs) => {
+      const base = vs[i];
+      const last = vs.reduce((at, v, j) => (v.name === base.name ? j : at), i);
+      const copy: Variant = { ...base, id: undefined, subName: "", stock: 0 };
+      return [...vs.slice(0, last + 1), copy, ...vs.slice(last + 1)];
+    });
 
   return (
     <form action={action} onSubmit={onSubmit} noValidate className="space-y-6">
@@ -90,14 +107,20 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
             + Add variant
           </button>
         </div>
-        <p className="text-xs text-taupe">E.g. “100g”, “200g · Rose”. Each variant has its own price (₹) and stock, plus an optional packed weight and box size for shipping that only admins see. To put it on sale, add a sale price: customers see the regular price crossed out.</p>
-        <div className="hidden grid-cols-[1fr_110px_110px_90px_40px] gap-3 text-xs text-taupe sm:grid">
-          <span>Name</span><span>Price (₹)</span><span>Sale price (₹)</span><span>Stock</span><span />
+        <p className="text-xs text-taupe">
+          E.g. “100g”, “Box of 4”. To offer choices inside a variant (e.g. fragrances), use <strong>+ Add sub-variant</strong>: each sub-variant (“Box of 4 · Rose”) has its own price and stock, and customers pick the variant first, then the sub-variant.
+          Each row also has an optional packed weight and box size for shipping that only admins see. To put a row on sale, add a sale price: customers see the regular price crossed out.
+        </p>
+        <div className="hidden grid-cols-[1fr_1fr_110px_110px_90px_40px] gap-3 text-xs text-taupe sm:grid">
+          <span>Variant</span><span>Sub-variant (optional)</span><span>Price (₹)</span><span>Sale price (₹)</span><span>Stock</span><span />
         </div>
-        {variants.map((v, i) => (
-          <div key={v.id ?? `new-${i}`}>
-          <div className="grid grid-cols-[1fr_auto] gap-3 sm:grid-cols-[1fr_110px_110px_90px_40px]">
-            <input className="input col-span-2 sm:col-span-1" placeholder="Variant name" aria-label="Variant name" aria-invalid={!!problems[i]} value={v.name} onChange={(e) => updateVariant(i, { name: e.target.value })} />
+        {variants.map((v, i) => {
+          const isSub = i > 0 && !!v.name && variants[i - 1].name === v.name;
+          return (
+          <div key={v.id ?? `new-${i}`} className={isSub ? "border-l-2 border-blush pl-3 sm:ml-4" : "border-t border-sand/40 pt-3 first:border-0 first:pt-0"}>
+          <div className="grid grid-cols-[1fr_auto] gap-3 sm:grid-cols-[1fr_1fr_110px_110px_90px_40px]">
+            <input className="input col-span-2 sm:col-span-1" placeholder="Variant name" aria-label="Variant name" aria-invalid={!!problems[i]} value={v.name} onChange={(e) => renameVariant(i, e.target.value)} />
+            <input className="input col-span-2 sm:col-span-1" placeholder="—" aria-label="Sub-variant name (optional)" aria-invalid={!!problems[i]} value={v.subName ?? ""} onChange={(e) => updateVariant(i, { subName: e.target.value })} />
             <div className="col-span-2 grid grid-cols-[1fr_1fr_1fr_40px] gap-3 sm:contents">
               <input className="input" type="number" min={1} step={1} aria-label="Price" aria-invalid={!!problems[i]} value={v.price} onChange={(e) => updateVariant(i, { price: Math.trunc(Number(e.target.value)) })} />
               <input
@@ -136,8 +159,14 @@ export function AdminProductForm({ initial, collections }: { initial?: Initial; 
             <span>cm</span>
           </div>
           {problems[i] && <p className="mt-1 text-xs text-brand" role="alert">{problems[i]}</p>}
+          {(i === variants.length - 1 || variants[i + 1].name !== v.name || !v.name) && (
+            <button type="button" className="mt-2 text-xs text-brand underline underline-offset-4 disabled:opacity-40" disabled={!v.name.trim()} onClick={() => addSubVariant(i)}>
+              + Add sub-variant{v.name.trim() ? ` to ${v.name.trim()}` : ""}
+            </button>
+          )}
           </div>
-        ))}
+          );
+        })}
       </section>
 
       <section className="card space-y-3 bg-white p-5">

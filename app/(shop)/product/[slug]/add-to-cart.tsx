@@ -10,8 +10,9 @@ import { AnimatedCount } from "@/components/animated-count";
 import { formatINR } from "@/lib/format";
 import { MAX_QTY_PER_VARIANT } from "@/lib/pricing";
 import { isOnSale, percentOff } from "@/lib/discounts";
+import { groupVariants, variantLabel } from "@/lib/variants";
 
-type Variant = { id: number; name: string; price: number; compareAtPrice: number | null; stock: number };
+type Variant = { id: number; name: string; subName: string; price: number; compareAtPrice: number | null; stock: number };
 
 export function AddToCart({ product, variants }: { product: { id: number; name: string; slug: string; image: string }; variants: Variant[] }) {
   const { add, items, setQuantity } = useCart();
@@ -21,6 +22,10 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const selected = variants.find((v) => v.id === selectedId);
+  // Variant first (Box of 4), then its sub-variants (Rose, Oud…); each sub-variant has its own price and stock.
+  const groups = groupVariants(variants);
+  const group = groups.find((g) => g.name === selected?.name);
+  const choose = (id: number) => { setSelectedId(id); setQty(1); setAdded(false); };
 
   if (!selected) return <p className="mt-6 text-taupe">{t("product.comingSoon")}</p>;
 
@@ -34,7 +39,7 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
 
   function onAdd() {
     if (!selected || qty > maxQty) return;
-    add({ variantId: selected.id, productSlug: product.slug, productName: product.name, variantName: selected.name, price: selected.price, image: product.image }, qty);
+    add({ variantId: selected.id, productSlug: product.slug, productName: product.name, variantName: variantLabel(selected.name, selected.subName), price: selected.price, image: product.image }, qty);
     setQty(1);
     setAdded(true);
   }
@@ -51,20 +56,45 @@ export function AddToCart({ product, variants }: { product: { id: number; name: 
         )}
       </p>
 
-      {variants.length > 1 && (
+      {groups.length > 1 && (
         <div className="mt-6">
           <p className="label">{t("product.chooseOption")}</p>
           <div className="flex flex-wrap gap-2">
-            {variants.map((v) => (
+            {groups.map((g) => {
+              const inStock = g.options.find((o) => o.stock > 0);
+              return (
+                <button
+                  key={g.name}
+                  onClick={() => choose((inStock ?? g.options[0]).id)}
+                  disabled={!inStock}
+                  aria-pressed={g.name === selected.name}
+                  className={`rounded-xl border px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:line-through disabled:opacity-40 ${
+                    g.name === selected.name ? "border-brand bg-blush text-brand" : "border-sand hover:border-brand"
+                  }`}
+                >
+                  {g.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {group && group.options.some((o) => o.subName) && (
+        <div className="mt-5">
+          <p className="label">{groups.length > 1 ? `Choose ${group.name}` : t("product.chooseOption")}</p>
+          <div className="flex flex-wrap gap-2">
+            {group.options.map((o) => (
               <button
-                key={v.id}
-                onClick={() => { setSelectedId(v.id); setQty(1); setAdded(false); }}
-                disabled={v.stock === 0}
+                key={o.id}
+                onClick={() => choose(o.id)}
+                disabled={o.stock === 0}
+                aria-pressed={o.id === selectedId}
                 className={`rounded-xl border px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:line-through disabled:opacity-40 ${
-                  v.id === selectedId ? "border-brand bg-blush text-brand" : "border-sand hover:border-brand"
+                  o.id === selectedId ? "border-brand bg-blush text-brand" : "border-sand hover:border-brand"
                 }`}
               >
-                {v.name}
+                {o.subName || group.name}
               </button>
             ))}
           </div>

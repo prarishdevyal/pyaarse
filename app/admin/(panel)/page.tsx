@@ -4,6 +4,7 @@ import { startOfIndianDay } from "@/lib/format";
 import { requireAdmin } from "@/lib/auth";
 import { and, count, desc, eq, gte, lte, ne, notInArray, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { variantLabelSql } from "@/lib/variants-sql";
 import { AdminOrdersTable } from "@/components/admin-orders-table";
 import { LiveRefresh } from "@/components/live-refresh";
 import { getStockRows } from "@/lib/stock-data";
@@ -23,7 +24,7 @@ export default async function AdminDashboard() {
     db.select({ n: count(), revenue: sql<number>`coalesce(sum(${orders.total}), 0)` }).from(orders)
       .where(and(gte(orders.createdAt, startOfDay), notInArray(orders.status, ["cancelled", "pending_payment"]))),
     db.select().from(orders).where(ne(orders.status, "pending_payment")).orderBy(desc(orders.createdAt)).limit(8),
-    db.select({ productId: products.id, productName: products.name, variantName: productVariants.name, stock: productVariants.stock })
+    db.select({ productId: products.id, productName: products.name, variantName: variantLabelSql, stock: productVariants.stock })
       .from(productVariants)
       .innerJoin(products, eq(products.id, productVariants.productId))
       .where(and(eq(products.isActive, true), lte(productVariants.stock, 3)))
