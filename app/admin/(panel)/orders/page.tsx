@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { statusesFor } from "@/lib/order-status";
 import { releaseExpiredOrders } from "@/lib/orders";
 import { requireAdmin } from "@/lib/auth";
 import { and, count, desc, eq, gte, ilike, inArray, ne, or, sql, type SQL } from "drizzle-orm";
@@ -112,6 +113,8 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             phone: r.phone,
             total: r.total,
             status: r.status,
+            paymentMethod: r.paymentMethod,
+            statuses: statusesFor(r.paymentMethod),
             createdAt: r.createdAt,
             adminNote: r.adminNote,
             details: {
@@ -123,6 +126,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
               discount: r.discount,
               couponCode: r.couponCode,
               shipping: r.shipping,
+              codFee: r.codFee,
               trackingNumber: r.trackingNumber,
               payment: payOf(r.id),
             },

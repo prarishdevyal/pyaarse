@@ -1,4 +1,3 @@
-import { calcShipping, type ShippingSettings } from "./pricing";
 import { formatINR } from "./format";
 
 export type CouponRule = {
@@ -25,12 +24,6 @@ export function couponDiscount(c: CouponRule | null | undefined, subtotal: numbe
   if (c.kind === "percent" && c.maxDiscount !== null) discount = Math.min(discount, c.maxDiscount);
   discount = Math.min(discount, subtotal);
   return discount > 0 ? { ok: true, discount } : { ok: false, error: "That code doesn't apply to this order." };
-}
-
-/** Order totals after a discount. Free shipping is judged on what the customer pays for the items. */
-export function totalsWithDiscount(subtotal: number, discount: number, s: ShippingSettings) {
-  const shipping = calcShipping(subtotal - discount, s);
-  return { subtotal, discount, shipping, total: subtotal - discount + shipping };
 }
 
 /** A short description for the admin and checkout, e.g. "10% off (up to ₹200) on ₹999+". */

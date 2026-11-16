@@ -14,4 +14,9 @@ describe("invoiceWhatsAppText", () => {
     expect(t).toContain("pay securely online (UPI, cards or net banking) here: https://www.pyaarse.net/order-confirmed?n=PY1006&t=x");
     expect(t).not.toContain("QR");
   });
+  it("asks for cash on delivery for COD orders", () => {
+    const t = invoiceWhatsAppText({ customerName: "Asha Rao", orderNumber: "PY1006", total: 1376, paid: false, cod: true });
+    expect(t).toContain("Please pay ₹1,376 in cash when it's delivered.");
+    expect(t).not.toContain("online");
+  });
 });

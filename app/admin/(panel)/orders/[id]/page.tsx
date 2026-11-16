@@ -5,7 +5,7 @@ import { eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ORDER_STATUSES } from "@/lib/db/schema";
 import { formatINR, STATUS_LABELS, toWhatsAppNumber, formatDateTime } from "@/lib/format";
-import { canChangeStatus } from "@/lib/order-status";
+import { canChangeStatus, isPaid } from "@/lib/order-status";
 import { StatusBadge } from "@/components/status-badge";
 import { ShareInvoiceButton } from "@/components/share-invoice-button";
 import { invoiceNumber } from "@/lib/invoice";
@@ -57,13 +57,14 @@ export default async function AdminOrderPage({
   const pkgOf = (variantId: number | null) => (variantId ? packages.get(variantId) ?? null : null);
   const parcel = parcelWeight(items.map((i) => ({ quantity: i.quantity, pkg: pkgOf(i.variantId) })));
   const { invoice, reason, shipping, note } = await searchParams;
-  const paid = order.status === "paid" || order.status === "shipped" || order.status === "delivered";
+  const cod = order.paymentMethod === "cod";
+  const paid = isPaid(order.status, order.paymentMethod);
   const invoiceFile = `${invoiceNumber(order.orderNumber)}.pdf`;
-  const options = ORDER_STATUSES.filter((s) => canChangeStatus(order.status, s));
-  const NEXT: Partial<Record<string, string>> = { pending_payment: "paid", paid: "shipped", shipped: "delivered" };
+  const options = ORDER_STATUSES.filter((s) => canChangeStatus(order.status, s, order.paymentMethod));
+  const NEXT: Partial<Record<string, string>> = { pending_payment: "paid", paid: "shipped", cod: "shipped", shipped: "delivered" };
   const suggested = NEXT[order.status] ?? options[0];
   const payUrl = order.status === "pending_payment" ? `${siteUrl()}${payPath(order.orderNumber)}` : null;
-  const waMessage = invoiceWhatsAppText({ customerName: order.customerName, orderNumber: order.orderNumber, total: order.total, paid, payUrl });
+  const waMessage = invoiceWhatsAppText({ customerName: order.customerName, orderNumber: order.orderNumber, total: order.total, paid, payUrl, cod });
 
   return (
     <div className="space-y-6">
@@ -71,6 +72,7 @@ export default async function AdminOrderPage({
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="font-serif text-4xl text-brand">Order {order.orderNumber}</h1>
         <StatusBadge status={order.status} />
+        {cod && <span className="rounded-full border border-violet-300 px-3 py-1 text-xs font-medium text-violet-900">Cash on Delivery</span>}
       </div>
       {shipping === "emailed" && (
         <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900" role="status">Tracking saved and the customer was emailed the Delhivery link.</p>
@@ -127,6 +129,7 @@ export default async function AdminOrderPage({
                 <div className="flex justify-between text-[#1f8f4e]"><dt>Discount{order.couponCode ? ` (${order.couponCode})` : ""}</dt><dd>−{formatINR(order.discount)}</dd></div>
               )}
               <div className="flex justify-between"><dt>Shipping</dt><dd>{order.shipping ? formatINR(order.shipping) : "Free"}</dd></div>
+              {order.codFee > 0 && <div className="flex justify-between"><dt>Cash on Delivery charge</dt><dd>{formatINR(order.codFee)}</dd></div>}
               <div className="flex justify-between text-base font-medium"><dt>Total</dt><dd className="text-brand">{formatINR(order.total)}</dd></div>
             </dl>
           </section>
@@ -164,7 +167,7 @@ export default async function AdminOrderPage({
                 <span className="text-sm text-taupe">{invoiceNumber(order.orderNumber)}</span>
               </div>
               <p className="text-sm">
-                {paid ? "Paid" : "Amount to pay"}: <strong className="text-brand">{formatINR(order.total)}</strong>
+                {paid ? "Paid" : cod ? "Cash to collect on delivery" : "Amount to pay"}: <strong className="text-brand">{formatINR(order.total)}</strong>
               </p>
               <ShareInvoiceButton
                 pdfUrl={`/orders/${order.id}/invoice`}
@@ -243,7 +246,11 @@ export default async function AdminOrderPage({
                   {options.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
                 </select>
                 <button className="btn-primary w-full">Save status</button>
-                <p className="text-xs text-taupe">Marking an order Paid emails the customer their invoice. Cancelling returns the items to stock and can&apos;t be undone.</p>
+                <p className="text-xs text-taupe">
+                  {cod
+                    ? "Cash on Delivery: mark it Delivered once Delhivery has collected the cash. Cancelling returns the items to stock and can't be undone."
+                    : "Marking an order Paid emails the customer their invoice. Cancelling returns the items to stock and can't be undone."}
+                </p>
               </form>
             )}
           </div>

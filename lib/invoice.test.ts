@@ -5,7 +5,7 @@ import { buildInvoicePdf, invoiceLabels, invoiceNumber, pdfMoney, pdfSafe, wrapT
 const data = {
   orderNumber: "PY1042", customerName: "Asha Rao", email: "asha@example.com", phone: "9876543210",
   addressLine: "12 MG Road", city: "Pune", state: "Maharashtra", pincode: "411001", notes: "",
-  subtotal: 998, discount: 0, couponCode: null, shipping: 0, total: 998,
+  subtotal: 998, discount: 0, couponCode: null, shipping: 0, codFee: 0, total: 998, paymentMethod: "online" as const,
   items: [{ productName: "Rose Candle", variantName: "200g", unitPrice: 499, quantity: 2 }],
   invoiceDate: new Date("2026-11-05T10:00:00Z"),
   paid: true,
@@ -32,6 +32,9 @@ describe("invoiceLabels", () => {
     expect(invoiceLabels(false).note).toContain("pay online");
     expect(invoiceLabels(false).note).not.toMatch(/QR|WhatsApp/);
     expect(invoiceLabels(true)).toEqual({ status: "Paid", total: "Total paid", note: "" });
+    expect(invoiceLabels(false, "cod")).toMatchObject({ status: "Cash on Delivery", total: "Pay on delivery" });
+    expect(invoiceLabels(false, "cod").note).toContain("in cash");
+    expect(invoiceLabels(true, "cod").status).toBe("Paid");
   });
 });
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { cartItemsSchema, checkoutSchema, contactSchema, couponSchema, resetPasswordSchema, settingsSchema, variantProblems } from "./validation";
+import { formErrors } from "./form-errors";
+import { cartItemsSchema, checkoutFieldsShape, checkoutSchema, contactSchema, couponSchema, resetPasswordSchema, settingsSchema, variantProblems } from "./validation";
+
+const pkg = { weightGrams: 400, lengthCm: 20, widthCm: 10, heightCm: 10 };
 
 const base = {
   customerName: "Asha", email: " Asha@Example.com ", phone: "98765 43210",
@@ -16,6 +19,14 @@ describe("checkoutSchema", () => {
   });
   it("rejects bad phone", () => expect(checkoutSchema.safeParse({ ...base, phone: "12345" }).success).toBe(false));
   it("rejects bad pincode", () => expect(checkoutSchema.safeParse({ ...base, pincode: "4110" }).success).toBe(false));
+  it("pays online unless Cash on Delivery is chosen", () => {
+    expect(checkoutSchema.parse(base).paymentMethod).toBe("online");
+    expect(checkoutSchema.parse({ ...base, paymentMethod: "cod" }).paymentMethod).toBe("cod");
+    expect(checkoutSchema.safeParse({ ...base, paymentMethod: "cheque" }).success).toBe(false);
+  });
+  it("doesn't check the payment choice as a typed field in the browser", () => {
+    expect(formErrors(checkoutFieldsShape, { ...base })).toEqual({});
+  });
   it("rejects empty cart", () => expect(checkoutSchema.safeParse({ ...base, items: [] }).success).toBe(false));
 });
 
@@ -69,25 +80,42 @@ describe("checkout state", () => {
   });
 });
 
+const rates = { baseRate: "50", slabRate: "30", gstPercent: "18", freeShippingThreshold: "999", codFlatFee: "40", codPercent: "2", codMinOrder: "0", codMaxOrder: "0" };
+
 describe("admin form rules", () => {
   it("validates settings amounts", () => {
-    expect(settingsSchema.safeParse({ shippingFee: "79", freeShippingThreshold: "999" }).success).toBe(true);
-    expect(settingsSchema.safeParse({ shippingFee: "-5", freeShippingThreshold: "999" }).success).toBe(false);
-    expect(settingsSchema.safeParse({ shippingFee: "7.5", freeShippingThreshold: "" }).success).toBe(false);
+    expect(settingsSchema.parse(rates)).toMatchObject({ baseRate: 50, slabRate: 30, gstPercent: 18, freeShippingThreshold: 999, codEnabled: false, codPercent: 2 });
+    expect(settingsSchema.parse({ ...rates, codEnabled: "on", codPercent: "2.5" })).toMatchObject({ codEnabled: true, codPercent: 2.5 });
+    expect(settingsSchema.safeParse({ ...rates, baseRate: "-5" }).success).toBe(false);
+    expect(settingsSchema.safeParse({ ...rates, baseRate: "7.5" }).success).toBe(false);
+    expect(settingsSchema.safeParse({ ...rates, freeShippingThreshold: "" }).success).toBe(false);
+    expect(settingsSchema.safeParse({ ...rates, gstPercent: "101" }).success).toBe(false);
+    expect(settingsSchema.safeParse({ ...rates, codPercent: "2.555" }).success).toBe(false);
+  });
+  it("needs the COD maximum above the minimum, or 0 for no maximum", () => {
+    expect(settingsSchema.safeParse({ ...rates, codMinOrder: "300", codMaxOrder: "3000" }).success).toBe(true);
+    expect(settingsSchema.safeParse({ ...rates, codMinOrder: "300", codMaxOrder: "0" }).success).toBe(true);
+    expect(settingsSchema.safeParse({ ...rates, codMinOrder: "3000", codMaxOrder: "300" }).success).toBe(false);
   });
   it("flags bad variant rows", () => {
-    expect(variantProblems([{ name: "200g", price: 499, stock: 3 }])).toEqual({});
-    expect(variantProblems([{ name: "", price: 499, stock: 3 }, { name: "x", price: 0, stock: 1 }])).toEqual({
+    expect(variantProblems([{ name: "200g", price: 499, stock: 3, ...pkg }])).toEqual({});
+    expect(variantProblems([{ name: "", price: 499, stock: 3, ...pkg }, { name: "x", price: 0, stock: 1, ...pkg }])).toEqual({
       0: "Give this variant a name, e.g. 200g.",
       1: "Price must be at least ₹1.",
     });
-    expect(variantProblems([{ name: "200g", price: 1, stock: 1 }, { name: "200G", price: 1, stock: 1 }])[1]).toBe("Two variants have the same name.");
+    expect(variantProblems([{ name: "200g", price: 1, stock: 1, ...pkg }, { name: "200G", price: 1, stock: 1, ...pkg }])[1]).toBe("Two variants have the same name.");
   });
   it("checks sale prices are below the price", () => {
-    expect(variantProblems([{ name: "200g", price: 699, salePrice: 499, stock: 3 }])).toEqual({});
-    expect(variantProblems([{ name: "200g", price: 699, salePrice: null, stock: 3 }])).toEqual({});
-    expect(variantProblems([{ name: "200g", price: 699, salePrice: 699, stock: 3 }])[0]).toBe("Sale price must be lower than the price.");
-    expect(variantProblems([{ name: "200g", price: 699, salePrice: 0, stock: 3 }])[0]).toBe("Sale price must be lower than the price.");
+    expect(variantProblems([{ name: "200g", price: 699, salePrice: 499, stock: 3, ...pkg }])).toEqual({});
+    expect(variantProblems([{ name: "200g", price: 699, salePrice: null, stock: 3, ...pkg }])).toEqual({});
+    expect(variantProblems([{ name: "200g", price: 699, salePrice: 699, stock: 3, ...pkg }])[0]).toBe("Sale price must be lower than the price.");
+    expect(variantProblems([{ name: "200g", price: 699, salePrice: 0, stock: 3, ...pkg }])[0]).toBe("Sale price must be lower than the price.");
+  });
+  it("needs the packed weight and box size, since they set the delivery charge", () => {
+    const need = /packed weight and box size/;
+    expect(variantProblems([{ name: "200g", price: 499, stock: 3 }])[0]).toMatch(need);
+    expect(variantProblems([{ name: "200g", price: 499, stock: 3, ...pkg, weightGrams: null }])[0]).toMatch(need);
+    expect(variantProblems([{ name: "200g", price: 499, stock: 3, ...pkg, lengthCm: null, widthCm: null, heightCm: null }])[0]).toMatch(need);
   });
 });
 
@@ -122,7 +150,7 @@ describe("resetPasswordSchema", () => {
 });
 
 describe("settingsSchema contact details", () => {
-  const base = { shippingFee: "79", freeShippingThreshold: "999" };
+  const base = rates;
   it("tidies contact details and allows them empty", () => {
     expect(settingsSchema.parse({ ...base, contactEmail: " Query@Pyaarse.net ", contactWhatsapp: "+91 98765-43210", contactInstagram: "https://instagram.com/pyaarse_net/" }))
       .toMatchObject({ contactEmail: "query@pyaarse.net", contactWhatsapp: "919876543210", contactInstagram: "pyaarse_net" });
@@ -136,7 +164,7 @@ describe("settingsSchema contact details", () => {
 });
 
 describe("sub-variants", () => {
-  const v = (name: string, subName = "") => ({ name, subName, price: 499, salePrice: null, stock: 3 });
+  const v = (name: string, subName = "") => ({ name, subName, price: 499, salePrice: null, stock: 3, ...pkg });
   it("allows a variant to split into named sub-variants", () => {
     expect(variantProblems([v("Box of 4", "Rose"), v("Box of 4", "Oud"), v("Single")])).toEqual({});
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONTENT_FIELDS, CONTENT_GROUPS, DEFAULT_HERO_IMAGE, HERO_IMAGE_KEY, cleanContentEdits, contentLookup, heroImageUrl } from "./content-defaults";
+import { announcementText, CONTENT_FIELDS, CONTENT_GROUPS, DEFAULT_HERO_IMAGE, HERO_IMAGE_KEY, cleanContentEdits, contentLookup, heroImageUrl } from "./content-defaults";
 
 describe("site content", () => {
   it("has unique keys", () => {
@@ -64,5 +64,15 @@ describe("payment texts", () => {
 
   it("no default text offers payment on WhatsApp or a QR code", () => {
     for (const [key, f] of CONTENT_FIELDS) expect(f.default, key).not.toMatch(/\bQR\b|pay on WhatsApp/i);
+  });
+});
+
+describe("announcementText", () => {
+  it("fills in the free-delivery amount", () => {
+    expect(announcementText("Free shipping on orders above {threshold}", 999)).toBe("Free shipping on orders above ₹999");
+  });
+  it("hides a free-delivery message when delivery is never free, but keeps other messages", () => {
+    expect(announcementText("Free shipping on orders above {threshold}", 0)).toBe("");
+    expect(announcementText("Diwali orders ship by the 25th", 0)).toBe("Diwali orders ship by the 25th");
   });
 });

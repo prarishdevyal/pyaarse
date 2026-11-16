@@ -29,13 +29,14 @@ export const checkoutSchema = z.object({
   pincode: z.string().trim().regex(/^\d{6}$/, "Pincode must be 6 digits"),
   notes: z.string().trim().max(500).default(""),
   couponCode: z.string().trim().max(30).optional().default(""),
+  paymentMethod: z.enum(["online", "cod"]).optional().default("online"),
   items: cartItems.min(1, "Your cart is empty.").refine(noDuplicates, "Duplicate items in cart."),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
-/** Checkout fields the customer types (everything except the cart), for live validation in the browser. */
-export const checkoutFieldsShape = checkoutSchema.omit({ items: true }).shape;
+/** Checkout fields the customer types (not the cart or the payment choice), for live validation in the browser. */
+export const checkoutFieldsShape = checkoutSchema.omit({ items: true, paymentMethod: true }).shape;
 
 export const registerSchema = z.object({
   name: line(2, 100, "Please enter your name"),
@@ -62,11 +63,26 @@ export const contactSchema = z.object({
   website: z.string().max(0).optional().default(""),
 });
 
-const rupees = (label: string) => z.string().trim().regex(/^\d{1,7}$/, `${label} must be a whole rupee amount (0 or more)`);
+const rupees = (label: string) =>
+  z.string().trim().regex(/^\d{1,7}$/, `${label} must be a whole rupee amount (0 or more)`).transform(Number);
+const percent = (label: string) =>
+  z
+    .string()
+    .trim()
+    .regex(/^\d{1,3}(\.\d{1,2})?$/, `${label} must be a number like 18 or 2.5`)
+    .transform(Number)
+    .pipe(z.number().max(100, `${label} can't be more than 100%`));
 
 export const settingsSchema = z.object({
-  shippingFee: rupees("Shipping fee"),
-  freeShippingThreshold: rupees("Free-shipping amount"),
+  baseRate: rupees("First 0.5 kg charge"),
+  slabRate: rupees("Extra 0.5 kg charge"),
+  gstPercent: percent("GST"),
+  freeShippingThreshold: rupees("Free-delivery amount"),
+  codEnabled: z.string().optional().transform((v) => v === "on" || v === "true"),
+  codFlatFee: rupees("COD flat charge"),
+  codPercent: percent("COD percentage"),
+  codMinOrder: rupees("COD minimum order"),
+  codMaxOrder: rupees("COD maximum order"),
   contactEmail: z.string().trim().toLowerCase().pipe(z.union([z.literal(""), z.email("Please enter a valid email")])).default(""),
   contactWhatsapp: z
     .string()
@@ -80,7 +96,7 @@ export const settingsSchema = z.object({
     .transform((v) => v.trim().replace(/^(https?:\/\/)?(www\.)?instagram\.com\//i, "").replace(/^@/, "").replace(/[/?#].*$/, ""))
     .pipe(z.union([z.literal(""), z.string().regex(/^[A-Za-z0-9._]{1,30}$/, "Use the Instagram username, e.g. pyaarse_net")]))
     .default(""),
-});
+}).refine((d) => d.codMaxOrder === 0 || d.codMaxOrder >= d.codMinOrder, { message: "The COD maximum must be more than the minimum (or 0 for no maximum).", path: ["codMaxOrder"] });
 
 export const collectionFieldsSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
@@ -104,8 +120,10 @@ export function variantProblems(
     else if (v.salePrice != null && (!Number.isInteger(v.salePrice) || v.salePrice < 1 || v.salePrice >= v.price)) out[i] = "Sale price must be lower than the price.";
     else if (!Number.isInteger(v.stock) || v.stock < 0) out[i] = "Stock can't be negative.";
     else {
-      const pkg = packageProblem({ weightGrams: v.weightGrams ?? null, lengthCm: v.lengthCm ?? null, widthCm: v.widthCm ?? null, heightCm: v.heightCm ?? null });
+      const p = { weightGrams: v.weightGrams ?? null, lengthCm: v.lengthCm ?? null, widthCm: v.widthCm ?? null, heightCm: v.heightCm ?? null };
+      const pkg = packageProblem(p);
       if (pkg) out[i] = pkg;
+      else if (Object.values(p).some((x) => x == null)) out[i] = "Add the packed weight and box size (L × W × H): they set the delivery charge.";
     }
   });
   // A variant name used more than once must split into named sub-variants (e.g. Box of 4 · Rose, Box of 4 · Oud).

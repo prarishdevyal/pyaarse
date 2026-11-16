@@ -15,6 +15,10 @@ const discountRow = (o: OrderSummary) =>
     ? `<tr><td style="padding:4px 0">${esc(discountLabel(o))}</td><td style="padding:4px 0;text-align:right;color:#1f8f4e">−${formatINR(o.discount)}</td></tr>`
     : "";
 
+const codRow = (o: OrderSummary) =>
+  o.codFee > 0 ? `<tr><td style="padding:4px 0">Cash on Delivery charge</td><td style="padding:4px 0;text-align:right">${formatINR(o.codFee)}</td></tr>` : "";
+const codText = (o: OrderSummary) => (o.codFee > 0 ? [`Cash on Delivery charge: ${formatINR(o.codFee)}`] : []);
+
 function itemRows(o: OrderSummary): string {
   return o.items
     .map(
@@ -28,7 +32,7 @@ function itemRows(o: OrderSummary): string {
 
 function totalRows(o: OrderSummary, totalLabel = "Total"): string {
   return `<tr><td style="padding:8px 0">Subtotal</td><td style="padding:8px 0;text-align:right">${formatINR(o.subtotal)}</td></tr>${discountRow(o)}
-      <tr><td style="padding:4px 0">Shipping</td><td style="padding:4px 0;text-align:right">${o.shipping === 0 ? "Free" : formatINR(o.shipping)}</td></tr>
+      <tr><td style="padding:4px 0">Shipping</td><td style="padding:4px 0;text-align:right">${o.shipping === 0 ? "Free" : formatINR(o.shipping)}</td></tr>${codRow(o)}
       <tr><td style="padding:8px 0;font-weight:bold">${totalLabel}</td><td style="padding:8px 0;text-align:right;font-weight:bold;color:#89211E">${formatINR(o.total)}</td></tr>`;
 }
 
@@ -64,6 +68,32 @@ export function buildInvoiceEmail(o: OrderSummary, invoiceNo: string): { subject
   return { subject, text, html };
 }
 
+/** Sent to the customer as soon as a Cash on Delivery order is placed, with the invoice PDF attached. */
+export function buildCodOrderEmail(o: OrderSummary, invoiceNo: string): { subject: string; text: string; html: string } {
+  const subject = `Order confirmed: ${o.orderNumber}, pay ${formatINR(o.total)} on delivery`;
+  const text = [
+    `Hi ${o.customerName},`,
+    ``,
+    `Thank you! Your order ${o.orderNumber} is confirmed.`,
+    `Please pay ${formatINR(o.total)} in cash when it's delivered. Your invoice ${invoiceNo} is attached.`,
+    ``,
+    ...o.items.map((i) => `- ${i.productName} (${i.variantName}) x ${i.quantity}: ${formatINR(i.unitPrice * i.quantity)}`),
+    ``,
+    `Amount to pay on delivery: ${formatINR(o.total)}`,
+    ``,
+    `We're preparing your candles now and will let you know when they ship.`,
+    ``,
+    `With love,`,
+    `Pyaarse`,
+  ].join("\n");
+  const html = page(`<p>Hi ${esc(o.customerName)},</p>
+    <p>Thank you! Your order <strong>${esc(o.orderNumber)}</strong> is confirmed. Your invoice <strong>${esc(invoiceNo)}</strong> is attached.</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0">${itemRows(o)}${totalRows(o, "Pay on delivery")}</table>
+    <div style="background:#F3E7E3;border-radius:12px;padding:16px;margin:24px 0">Please keep <strong>${formatINR(o.total)}</strong> ready to pay in cash when your order arrives. We're preparing your candles now and will let you know when they ship.</div>
+    <p>With love,<br>Pyaarse</p>`);
+  return { subject, text, html };
+}
+
 /** New-order alert for the shop's inbox (same details as the Telegram alert). */
 export function buildAdminOrderEmail(o: OrderSummary, adminOrderUrl?: string, status = "Awaiting payment"): { subject: string; text: string; html: string } {
   const subject = `New order ${o.orderNumber}: ${formatINR(o.total)} from ${o.customerName}`;
@@ -81,7 +111,9 @@ export function buildAdminOrderEmail(o: OrderSummary, adminOrderUrl?: string, st
     `Subtotal: ${formatINR(o.subtotal)}`,
     ...discountText(o),
     `Shipping: ${o.shipping === 0 ? "Free" : formatINR(o.shipping)}`,
+    ...codText(o),
     `Total: ${formatINR(o.total)}`,
+    ...(o.paymentMethod === "cod" ? [`Cash on Delivery: collect ${formatINR(o.total)}`] : []),
     ...(o.notes ? [``, `Notes: ${o.notes}`] : []),
     ``,
     `WhatsApp: ${wa}`,

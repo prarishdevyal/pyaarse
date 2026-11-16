@@ -43,8 +43,11 @@ export const productVariants = pgTable("product_variants", {
   sortOrder: integer("sort_order").notNull().default(0),
 }).enableRLS();
 
-export const ORDER_STATUSES = ["pending_payment", "paid", "shipped", "delivered", "cancelled"] as const;
+/** "cod" = a Cash on Delivery order, placed and waiting to be packed; the cash is collected on delivery. */
+export const ORDER_STATUSES = ["pending_payment", "paid", "cod", "shipped", "delivered", "cancelled"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+export const PAYMENT_METHODS = ["online", "cod"] as const;
 
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
@@ -66,7 +69,10 @@ export const orders = pgTable("orders", {
   discount: integer("discount").notNull().default(0),
   couponCode: text("coupon_code"),
   shipping: integer("shipping").notNull(),
+  /** Cash on Delivery charge (0 for orders paid online). */
+  codFee: integer("cod_fee").notNull().default(0),
   total: integer("total").notNull(),
+  paymentMethod: text("payment_method", { enum: PAYMENT_METHODS }).notNull().default("online"),
   status: text("status", { enum: ORDER_STATUSES }).notNull().default("pending_payment"),
   /** Delhivery waybill (AWB) number, set when the order ships. */
   trackingNumber: text("tracking_number"),

@@ -9,8 +9,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getProductCards, type ProductCard } from "@/lib/catalog";
 import { findTrackedOrder, placeOrder, type TrackedOrder } from "@/lib/orders";
 import { priceCart, type CartLine } from "@/lib/pricing";
-import { couponDiscount, normalizeCode, totalsWithDiscount } from "@/lib/discounts";
-import { getShippingSettings } from "@/lib/settings";
+import { couponDiscount, normalizeCode } from "@/lib/discounts";
+import { codAvailability, orderTotals } from "@/lib/shipping";
+import { getShippingRates } from "@/lib/settings";
 import { cartItemsSchema, checkoutSchema, contactSchema, forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema, trackOrderSchema } from "@/lib/validation";
 import { resetSentMessage, sendPasswordResetLink } from "@/lib/password-reset";
 import { ACCOUNTS_UNAVAILABLE, AuthOutageError, isAuthOutage } from "@/lib/auth-outage";
@@ -34,8 +35,11 @@ function fieldErrors(issues: { path: PropertyKey[]; message: string }[]) {
 
 // ---------- Cart & checkout ----------
 
+/** Prices the cart from the server: items, discount and delivery, plus what Cash on Delivery would add (if it's allowed). */
 export async function quoteCart(input: CartLine[], couponCode = "") {
-  const settings = await getShippingSettings();
+  const rates = await getShippingRates();
+  // Only what the cart page needs to show.
+  const settings = { freeShippingThreshold: rates.freeShippingThreshold };
   const parsed = cartItemsSchema.safeParse(input);
   if (!parsed.success) return { quote: { ok: false as const, error: "Your cart could not be read. Please refresh." }, settings, variants: [] };
   if (!await limits.quoteByIp.hit(await clientIp())) return { quote: { ok: false as const, error: TOO_MANY }, settings, variants: [] };
@@ -52,13 +56,17 @@ export async function quoteCart(input: CartLine[], couponCode = "") {
       compareAtPrice: schema.productVariants.compareAtPrice,
       stock: schema.productVariants.stock,
       isActive: schema.products.isActive,
+      weightGrams: schema.productVariants.weightGrams,
+      lengthCm: schema.productVariants.lengthCm,
+      widthCm: schema.productVariants.widthCm,
+      heightCm: schema.productVariants.heightCm,
     })
     .from(schema.productVariants)
     .innerJoin(schema.products, eq(schema.products.id, schema.productVariants.productId))
     .where(and(inArray(schema.productVariants.id, ids), eq(schema.products.isActive, true)));
   // Only what the cart UI needs, and never anything about hidden products.
   const variants = rows.map(({ id, price, compareAtPrice, stock }) => ({ id, price, compareAtPrice, stock }));
-  const priced = priceCart(lines, rows, settings);
+  const priced = priceCart(lines, rows);
   if (!priced.ok) return { quote: priced, settings, variants };
 
   const code = normalizeCode(couponCode.slice(0, 30));
@@ -70,7 +78,14 @@ export async function quoteCart(input: CartLine[], couponCode = "") {
     if (applied.ok) discount = applied.discount;
     else couponError = applied.error;
   }
-  const quote = { ...priced, ...totalsWithDiscount(priced.subtotal, discount, settings), couponCode: discount ? code : null, couponError };
+  const { grams, ...rest } = priced;
+  const totals = orderTotals({ subtotal: priced.subtotal, discount, grams, method: "online" }, rates);
+  const allowed = codAvailability(priced.subtotal - discount, rates);
+  const codTotals = orderTotals({ subtotal: priced.subtotal, discount, grams, method: "cod" }, rates);
+  const cod = allowed.ok
+    ? { available: true as const, fee: codTotals.codFee, total: codTotals.total }
+    : { available: false as const, reason: rates.codEnabled ? allowed.reason : undefined };
+  const quote = { ...rest, ...totals, couponCode: discount ? code : null, couponError, cod };
   return { quote, settings, variants };
 }
 

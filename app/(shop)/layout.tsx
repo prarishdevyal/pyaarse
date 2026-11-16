@@ -1,4 +1,5 @@
 import { CartProvider } from "@/components/cart-provider";
+import { announcementText } from "@/lib/content-defaults";
 import { WishlistProvider } from "@/components/wishlist-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -10,7 +11,6 @@ import { storeContact } from "@/lib/store";
 import { getContent } from "@/lib/content";
 import { CLIENT_TEXT_KEYS } from "@/lib/content-defaults";
 import { SiteTextProvider } from "@/components/site-text";
-import { formatINR } from "@/lib/format";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { MaintenancePage } from "@/components/maintenance-page";
@@ -29,7 +29,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
       <WishlistProvider loggedIn={!!user} serverIds={wishlist}>
         <SiteHeader
           loggedIn={!!user}
-          announcement={t("announcement").replaceAll("{threshold}", formatINR(settings.freeShippingThreshold))}
+          announcement={announcementText(t("announcement"), settings.freeShippingThreshold)}
         />
         <Suspense>
           <VerifiedNotice />

@@ -46,7 +46,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                   <p className="font-medium">Order {o.orderNumber}</p>
                   <p className="text-sm text-taupe">{formatDate(o.createdAt)}</p>
                 </div>
-                <StatusBadge status={o.status} />
+                <StatusBadge status={o.status} forCustomer />
               </div>
               <ul className="mt-4 space-y-1 text-sm">
                 {items.filter((i) => i.orderId === o.id).map((i) => (

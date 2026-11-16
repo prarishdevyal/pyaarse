@@ -1,7 +1,7 @@
 import "server-only";
 import { db, schema } from "./db";
-import type { ShippingSettings } from "./pricing";
-import { parseSettings, type ShopSettings } from "./settings-parse";
+import type { ShippingRates } from "./shipping";
+import { parseSettings, RATE_KEYS, type ShopSettings } from "./settings-parse";
 import { storeContact } from "./store";
 
 export { DEFAULT_SETTINGS } from "./settings-parse";
@@ -16,9 +16,9 @@ export async function getStoreContact() {
   return storeContact(process.env, { email: s.contactEmail, whatsapp: s.contactWhatsapp, instagram: s.contactInstagram });
 }
 
-export async function getShippingSettings(): Promise<ShippingSettings> {
-  const { shippingFee, freeShippingThreshold } = await getSettings();
-  return { shippingFee, freeShippingThreshold };
+export async function getShippingRates(): Promise<ShippingRates> {
+  const { maintenance: _m, contactEmail: _e, contactWhatsapp: _w, contactInstagram: _i, ...rates } = await getSettings();
+  return rates;
 }
 
 /** Turns maintenance mode on or off (its own switch, so saving other settings never changes it). */
@@ -31,8 +31,7 @@ export const MAINTENANCE_MESSAGE = "The shop is closed for a short while for mai
 
 export async function saveSettings(s: Omit<ShopSettings, "maintenance">): Promise<void> {
   const rows: [string, string][] = [
-    ["shipping_fee", String(s.shippingFee)],
-    ["free_shipping_threshold", String(s.freeShippingThreshold)],
+    ...(Object.keys(RATE_KEYS) as (keyof typeof RATE_KEYS)[]).map((k): [string, string] => [RATE_KEYS[k], String(s[k])]),
     ["contact_email", s.contactEmail],
     ["contact_whatsapp", s.contactWhatsapp],
     ["contact_instagram", s.contactInstagram],

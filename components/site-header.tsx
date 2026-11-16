@@ -30,11 +30,13 @@ export function SiteHeader({ loggedIn, announcement }: Props) {
 
   return (
     <header className="sticky top-0 z-40">
-      <div className="bg-brand text-ivory">
-        <p className="container-page flex items-center justify-center gap-2 py-2 text-sm">
-          <TruckIcon size={18} aria-hidden /> {announcement}
-        </p>
-      </div>
+      {announcement && (
+        <div className="bg-brand text-ivory">
+          <p className="container-page flex items-center justify-center gap-2 py-2 text-sm">
+            <TruckIcon size={18} aria-hidden /> {announcement}
+          </p>
+        </div>
+      )}
       <div className="border-b border-sand/50 bg-ivory/95 backdrop-blur">
         <div className="container-page flex h-[72px] items-center justify-between gap-4">
           <button className="md:hidden" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} onClick={() => setOpen((o) => !o)}>

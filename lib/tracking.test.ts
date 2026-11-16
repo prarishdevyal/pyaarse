@@ -22,6 +22,11 @@ describe("trackSteps", () => {
     expect(trackSteps("delivered").every((s) => s.done)).toBe(true);
     expect(trackSteps("cancelled").some((s) => s.done)).toBe(false);
   });
+  it("has no payment step for Cash on Delivery", () => {
+    expect(trackSteps("cod", "cod").map((s) => [s.key, s.done, s.current])).toEqual([["placed", true, true], ["shipped", false, false], ["delivered", false, false]]);
+    expect(trackSteps("shipped", "cod").map((s) => s.done)).toEqual([true, true, false]);
+    expect(trackSteps("delivered", "cod").at(-1)).toMatchObject({ label: "Delivered and paid", done: true, current: true });
+  });
 });
 
 describe("contactMatches", () => {
@@ -44,6 +49,7 @@ describe("canShip", () => {
     expect(canShip("pending_payment")).toBe(false);
     expect(canShip("cancelled")).toBe(false);
     expect(canShip("paid")).toBe(true);
+    expect(canShip("cod")).toBe(true);
     expect(canShip("shipped")).toBe(true);
     expect(canShip("delivered")).toBe(true);
   });

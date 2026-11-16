@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { couponDiscount, describeCoupon, expiryFromDate, fromStoredPrices, isOnSale, normalizeCode, percentOff, toStoredPrices, totalsWithDiscount, type CouponRule } from "./discounts";
+import { couponDiscount, describeCoupon, expiryFromDate, fromStoredPrices, isOnSale, normalizeCode, percentOff, toStoredPrices, type CouponRule } from "./discounts";
 
 const now = new Date("2026-11-05T12:00:00Z");
 const c = (o: Partial<CouponRule> = {}): CouponRule => ({
@@ -27,14 +27,6 @@ describe("couponDiscount", () => {
     expect(couponDiscount(c({ usageLimit: 5, usedCount: 5 }), 999, now)).toEqual({ ok: false, error: "That code has been fully used." });
   });
   it("refuses a zero discount", () => expect(couponDiscount(c({ value: 1 }), 50, now).ok).toBe(false));
-});
-
-describe("totalsWithDiscount", () => {
-  const s = { shippingFee: 79, freeShippingThreshold: 999 };
-  it("judges free shipping after the discount", () => {
-    expect(totalsWithDiscount(1099, 200, s)).toEqual({ subtotal: 1099, discount: 200, shipping: 79, total: 978 });
-    expect(totalsWithDiscount(1299, 100, s)).toEqual({ subtotal: 1299, discount: 100, shipping: 0, total: 1199 });
-  });
 });
 
 describe("sale prices", () => {

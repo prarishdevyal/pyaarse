@@ -25,7 +25,9 @@ export function buildTelegramMessage(o: OrderSummary, adminOrderUrl?: string, st
     `Subtotal: ${formatINR(o.subtotal)}`,
     ...(o.discount > 0 ? [`Discount${o.couponCode ? ` (${esc(o.couponCode)})` : ""}: -${formatINR(o.discount)}`] : []),
     `Shipping: ${o.shipping === 0 ? "Free" : formatINR(o.shipping)}`,
+    ...(o.codFee > 0 ? [`COD charge: ${formatINR(o.codFee)}`] : []),
     `<b>Total: ${formatINR(o.total)}</b>`,
+    ...(o.paymentMethod === "cod" ? [`💵 <b>Cash on Delivery: collect ${formatINR(o.total)}</b>`] : []),
   ];
   if (o.notes) lines.push(``, `📝 ${esc(o.notes)}`);
   lines.push(``, `<a href="${wa}">💬 Message customer on WhatsApp</a>`);

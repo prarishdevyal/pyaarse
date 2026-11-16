@@ -4,6 +4,7 @@
  */
 import { DEFAULT_PRIVACY, DEFAULT_TERMS } from "./legal-defaults";
 import { isAllowedImageUrl, type ImageEnv } from "./images";
+import { formatINR } from "./format";
 
 export type ContentKind = "line" | "text" | "long";
 export type ContentField = { key: string; label: string; kind: ContentKind; default: string; hint?: string };
@@ -290,4 +291,10 @@ export const DEFAULT_HERO_IMAGE = "/placeholders/hero.jpg";
 /** The uploaded hero photo if it's one of our own images, else the original photo. */
 export function heroImageUrl(stored: string | undefined, env: ImageEnv = process.env): string {
   return stored && isAllowedImageUrl(stored, env) ? stored : DEFAULT_HERO_IMAGE;
+}
+
+/** The top bar message with the free-delivery amount filled in; empty (no bar) if it mentions that amount but delivery is never free. */
+export function announcementText(template: string, freeShippingThreshold: number): string {
+  if (template.includes("{threshold}") && freeShippingThreshold <= 0) return "";
+  return template.replaceAll("{threshold}", formatINR(freeShippingThreshold));
 }

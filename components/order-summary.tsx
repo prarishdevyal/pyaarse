@@ -5,6 +5,7 @@ export function Totals({
   discount = 0,
   couponCode,
   shipping,
+  codFee = 0,
   total,
   freeShippingThreshold,
 }: {
@@ -12,6 +13,7 @@ export function Totals({
   discount?: number;
   couponCode?: string | null;
   shipping: number;
+  codFee?: number;
   total: number;
   freeShippingThreshold?: number;
 }) {
@@ -24,7 +26,8 @@ export function Totals({
         </div>
       )}
       <div className="flex justify-between"><dt>Shipping</dt><dd>{shipping === 0 ? "Free" : formatINR(shipping)}</dd></div>
-      {freeShippingThreshold !== undefined && shipping > 0 && (
+      {codFee > 0 && <div className="flex justify-between"><dt>Cash on Delivery charge</dt><dd>{formatINR(codFee)}</dd></div>}
+      {freeShippingThreshold !== undefined && freeShippingThreshold > 0 && shipping > 0 && (
         <p className="text-xs text-taupe">Add {formatINR(freeShippingThreshold - (subtotal - discount))} more for free shipping.</p>
       )}
       <div className="flex justify-between border-t border-sand/70 pt-3 text-base font-medium">

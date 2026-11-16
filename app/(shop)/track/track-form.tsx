@@ -47,6 +47,10 @@ export function TrackForm({ orderNumber }: { orderNumber: string }) {
             </ol>
           )}
 
+          {o.cod && o.status !== "cancelled" && o.status !== "delivered" && (
+            <p className="mt-5 rounded-xl bg-blush p-4 text-sm">Cash on Delivery: please pay <strong>{formatINR(o.total)}</strong> in cash when your order arrives.</p>
+          )}
+
           {o.status === "pending_payment" && o.payPath && (
             <div className="mt-5">
               <p className="text-sm text-charcoal/80">This order is waiting for payment. It&apos;s placed once payment goes through.</p>

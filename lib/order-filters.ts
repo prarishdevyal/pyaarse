@@ -10,6 +10,7 @@ export const ORDER_CARDS: { status: OrderStatus | null; label: string; hint: str
   { status: null, label: "All orders", hint: "Not counting cancelled" },
   { status: "pending_payment", label: "Awaiting payment", hint: "Not paid yet" },
   { status: "paid", label: "Processing", hint: "Paid, to pack and ship" },
+  { status: "cod", label: "COD – to collect", hint: "Cash to collect, to pack and ship" },
   { status: "shipped", label: "Shipped", hint: "On the way" },
   { status: "delivered", label: "Delivered", hint: "Done" },
 ];

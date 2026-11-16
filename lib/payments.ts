@@ -99,6 +99,7 @@ export async function startPayment(orderNumber: string): Promise<StartPaymentRes
   if ((await getSettings()).maintenance) return { ok: false, error: MAINTENANCE_MESSAGE };
   const [order] = await db.select().from(orders).where(eq(orders.orderNumber, orderNumber));
   if (!order) return { ok: false, error: "We couldn't find that order." };
+  if (order.paymentMethod === "cod") return { ok: false, closed: true, error: "This order is Cash on Delivery: please pay when it arrives." };
   if (order.status === "cancelled") return { ok: false, closed: true, error: "This order was cancelled, so it can't be paid." };
   if (order.status !== "pending_payment") return { ok: false, paid: true, error: "This order is already paid." };
   if (!canStartPayment(order.payBy, new Date())) return { ok: false, closed: true, error: "The time to pay for this order has run out." };
@@ -305,9 +306,10 @@ async function alert(text: string) {
  * - start: no payment tried yet (straight after checkout the page opens Cashfree by itself);
  * - retry: a payment didn't complete; the customer has until payBy (at most 5 minutes) to try again;
  * - processing: a payment is still going through (or Cashfree can't be reached): the page checks again shortly;
- * - paid / cancelled: final.
+ * - paid / cancelled: final;
+ * - cod: a Cash on Delivery order, confirmed and paid for when it arrives.
  */
-export type PayPhase = "start" | "retry" | "processing" | "paid" | "cancelled";
+export type PayPhase = "start" | "retry" | "processing" | "paid" | "cancelled" | "cod";
 export type PayView = { orderNumber: string; total: number; email: string; phase: PayPhase; payBy: string };
 
 async function readOrder(orderNumber: string) {
@@ -325,6 +327,9 @@ async function paymentInProgress(api: CashfreeClient, providerOrderId: string): 
 export async function payView(orderNumber: string, now = new Date()): Promise<PayView | null> {
   let order = await readOrder(orderNumber);
   if (!order) return null;
+  if (order.paymentMethod === "cod") {
+    return { orderNumber, total: order.total, email: order.email, phase: order.status === "cancelled" ? "cancelled" : "cod", payBy: order.payBy.toISOString() };
+  }
   let state: PaymentState | "unknown" = "none";
   if (order.status === "pending_payment") {
     try {

@@ -3,7 +3,7 @@ import { HeartIcon } from "@/components/icons";
 import { getContent } from "@/lib/content";
 import { formatINR } from "@/lib/format";
 import { checkPayToken } from "@/lib/pay-link";
-import { onlinePaymentsEnabled, payView } from "@/lib/payments";
+import { payView } from "@/lib/payments";
 import { PaymentStatus } from "./payment-status";
 
 export const metadata = { title: "Your order" };
@@ -21,11 +21,11 @@ export default async function OrderConfirmedPage({ searchParams }: { searchParam
   const orderNumber = n && /^PY\d{1,9}$/.test(n) ? n : null;
   const t = await getContent();
   // Order details only with the order's pay-link token, so an order number alone reveals nothing.
-  const view = orderNumber && onlinePaymentsEnabled() && checkPayToken(orderNumber, token) ? await payView(orderNumber) : null;
+  const view = orderNumber && checkPayToken(orderNumber, token) ? await payView(orderNumber) : null;
 
   const actions = (
     <div className="mt-8 flex flex-wrap justify-center gap-3">
-      <Link href="/shop" className={view?.phase === "paid" || !view || view.phase === "cancelled" ? "btn-primary" : "btn-secondary"}>
+      <Link href="/shop" className={view?.phase === "paid" || view?.phase === "cod" || !view || view.phase === "cancelled" ? "btn-primary" : "btn-secondary"}>
         {view?.phase === "cancelled" ? "Shop again" : t("confirmed.cta")}
       </Link>
       {orderNumber && view?.phase !== "cancelled" && <Link href={`/track?n=${orderNumber}`} className="btn-secondary">Track this order</Link>}
@@ -52,6 +52,23 @@ export default async function OrderConfirmedPage({ searchParams }: { searchParam
           <p className="font-medium text-green-800">Payment received: {formatINR(view.total)}</p>
           <p className="mt-1 text-sm text-charcoal/80">
             We&apos;ve emailed your invoice to {view.email}. We&apos;ll pack your candles with care and send you the tracking details once they ship.
+          </p>
+        </div>
+        {actions}
+      </div>
+    );
+  }
+
+  if (view.phase === "cod") {
+    return (
+      <div className="container-page max-w-xl py-20 text-center">
+        <HeartIcon width={48} height={48} filled className="anim-pop mx-auto text-brand [animation-delay:200ms]" />
+        <h1 className="heading-section mt-6">{t("confirmed.title")}</h1>
+        <p className="mt-3 text-lg">Order <strong>{view.orderNumber}</strong> is confirmed.</p>
+        <div className="anim-rise card mt-8 border-2 border-green-700/30 p-6 text-left" role="status">
+          <p className="font-medium text-green-800">Cash on Delivery: pay {formatINR(view.total)} when it arrives</p>
+          <p className="mt-1 text-sm text-charcoal/80">
+            We&apos;ve emailed your order details to {view.email}. We&apos;ll pack your candles with care and send you the tracking details once they ship.
           </p>
         </div>
         {actions}

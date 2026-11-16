@@ -1,8 +1,8 @@
+import { chargeableGrams, type ParcelLine } from "./shipping";
+
 /** Max units of one variant per order (applied after duplicate lines are merged). */
 export const MAX_QTY_PER_VARIANT = 5;
 export const MAX_CART_LINES = 30;
-
-export type ShippingSettings = { shippingFee: number; freeShippingThreshold: number };
 
 export type CartLine = { variantId: number; quantity: number };
 
@@ -14,7 +14,7 @@ export type VariantInfo = {
   price: number;
   stock: number;
   isActive: boolean;
-};
+} & Omit<ParcelLine, "quantity">;
 
 export type PricedLine = {
   variantId: number;
@@ -26,17 +26,11 @@ export type PricedLine = {
   lineTotal: number;
 };
 
-export function calcShipping(subtotal: number, s: ShippingSettings): number {
-  if (subtotal <= 0) return 0;
-  return subtotal >= s.freeShippingThreshold ? 0 : s.shippingFee;
-}
-
-/** Merges duplicate lines, prices them from server data and checks stock. */
+/** Merges duplicate lines, prices them from server data and checks stock. `grams` is what the courier charges by. */
 export function priceCart(
   lines: CartLine[],
   variants: VariantInfo[],
-  s: ShippingSettings,
-): { ok: true; lines: PricedLine[]; subtotal: number; shipping: number; total: number } | { ok: false; error: string } {
+): { ok: true; lines: PricedLine[]; subtotal: number; grams: number } | { ok: false; error: string } {
   const merged = new Map<number, number>();
   for (const l of lines) {
     if (!Number.isInteger(l.quantity) || l.quantity < 1) return { ok: false, error: "Invalid quantity in cart." };
@@ -70,6 +64,6 @@ export function priceCart(
     });
   }
   const subtotal = priced.reduce((sum, l) => sum + l.lineTotal, 0);
-  const shipping = calcShipping(subtotal, s);
-  return { ok: true, lines: priced, subtotal, shipping, total: subtotal + shipping };
+  const grams = chargeableGrams(priced.map((l) => ({ ...byId.get(l.variantId)!, quantity: l.quantity })));
+  return { ok: true, lines: priced, subtotal, grams };
 }

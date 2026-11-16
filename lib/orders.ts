@@ -11,10 +11,12 @@ import { getSettings, getStoreContact, MAINTENANCE_MESSAGE } from "./settings";
 import type { CheckoutInput } from "./validation";
 import type { OrderSummary } from "./notify/types";
 import { buildTelegramMessage, sendTelegram } from "./notify/telegram";
-import { buildAdminOrderEmail, buildInvoiceEmail, buildShippedEmail, orderAlertEmail, sendEmail } from "./notify/email";
+import { buildAdminOrderEmail, buildCodOrderEmail, buildInvoiceEmail, buildShippedEmail, orderAlertEmail, sendEmail } from "./notify/email";
 import { canShip, contactMatches, delhiveryTrackingUrl, trackSteps } from "./tracking";
 import { buildInvoicePdf, invoiceNumber } from "./invoice";
-import { couponDiscount, normalizeCode, totalsWithDiscount } from "./discounts";
+import { couponDiscount, normalizeCode } from "./discounts";
+import { codAvailability, orderTotals } from "./shipping";
+import { formatINR } from "./format";
 
 import { siteUrl } from "./hosts";
 import { closeOnlinePayment, reconcileBeforeExpiry } from "./payments";
@@ -81,8 +83,9 @@ export async function placeOrder(
   input: CheckoutInput,
   userId: string | null,
 ): Promise<{ ok: true; orderId: number; orderNumber: string } | { ok: false; error: string }> {
-  // Every order is paid online, so there's no checkout without Cashfree.
-  if (!cashfreeConfig()) return { ok: false, error: "Checkout is paused for a moment. Please try again in a little while." };
+  const cod = input.paymentMethod === "cod";
+  // Online orders are paid through Cashfree, so there's no online checkout without it.
+  if (!cod && !cashfreeConfig()) return { ok: false, error: "Checkout is paused for a moment. Please try again in a little while." };
   const settings = await getSettings();
   if (settings.maintenance) return { ok: false, error: MAINTENANCE_MESSAGE };
   await releaseExpiredOrders();
@@ -99,6 +102,10 @@ export async function placeOrder(
           compareAtPrice: productVariants.compareAtPrice,
           stock: productVariants.stock,
           isActive: products.isActive,
+          weightGrams: productVariants.weightGrams,
+          lengthCm: productVariants.lengthCm,
+          widthCm: productVariants.widthCm,
+          heightCm: productVariants.heightCm,
         })
         .from(productVariants)
         .innerJoin(products, eq(products.id, productVariants.productId))
@@ -106,7 +113,7 @@ export async function placeOrder(
         .orderBy(productVariants.id)
         .for("update", { of: productVariants });
 
-      const priced = priceCart(input.items, variants, settings);
+      const priced = priceCart(input.items, variants);
       if (!priced.ok) throw new CheckoutError(priced.error);
 
       // The coupon row is locked so two orders can't both take its last use.
@@ -119,7 +126,11 @@ export async function placeOrder(
         discount = applied.discount;
         await tx.update(coupons).set({ usedCount: sql`${coupons.usedCount} + 1` }).where(eq(coupons.id, coupon.id));
       }
-      const totals = totalsWithDiscount(priced.subtotal, discount, settings);
+      if (cod) {
+        const allowed = codAvailability(priced.subtotal - discount, settings);
+        if (!allowed.ok) throw new CheckoutError(`${allowed.reason} Please choose Pay online.`);
+      }
+      const totals = orderTotals({ subtotal: priced.subtotal, discount, grams: priced.grams, method: input.paymentMethod }, settings);
 
       for (const l of priced.lines) {
         await tx
@@ -128,7 +139,7 @@ export async function placeOrder(
           .where(eq(productVariants.id, l.variantId));
       }
 
-      const { items: _, couponCode: __, ...customer } = input;
+      const { items: _, couponCode: __, paymentMethod, ...customer } = input;
       const [created] = await tx
         .insert(orders)
         .values({
@@ -139,7 +150,11 @@ export async function placeOrder(
           discount: totals.discount,
           couponCode: discount ? code : null,
           shipping: totals.shipping,
+          codFee: totals.codFee,
           total: totals.total,
+          paymentMethod,
+          // A Cash on Delivery order is placed straight away; an online one once it's paid.
+          status: cod ? "cod" : "pending_payment",
           payBy: payWindowEnd(new Date()),
         })
         .returning({ id: orders.id });
@@ -164,12 +179,29 @@ export async function placeOrder(
       return { order: { id: created.id, orderNumber } };
     });
 
-    // Nobody is notified yet: the order only counts once it's paid (see reconcilePayment in payments.ts).
+    // An online order only counts once it's paid (see reconcilePayment in payments.ts), so nobody is told yet.
+    if (cod) await confirmCodOrder(order.id);
     return { ok: true, orderId: order.id, orderNumber: order.orderNumber };
   } catch (e) {
     if (e instanceof CheckoutError) return { ok: false, error: e.message };
     throw e;
   }
+}
+
+/** A new Cash on Delivery order: the customer gets their confirmation and invoice, the shop its new-order alert. Never throws. */
+async function confirmCodOrder(orderId: number) {
+  const summary = await getOrderSummary(orderId).catch((e) => (console.error("[cod order]", e), null));
+  if (!summary) return;
+  let emailed = "Confirmation emailed to the customer.";
+  try {
+    const no = invoiceNumber(summary.orderNumber);
+    const pdf = await invoicePdfFor(summary, false);
+    await sendEmail(summary.email, { ...buildCodOrderEmail(summary, no), attachments: [{ filename: `${no}.pdf`, content: pdf, contentType: "application/pdf" }] });
+  } catch (e) {
+    console.error("[cod order email]", e);
+    emailed = `Confirmation email failed: ${e instanceof Error ? e.message : String(e)}`;
+  }
+  await alertNewOrder(orderId, summary, `Cash on Delivery: collect ${formatINR(summary.total)}. ${emailed}`);
 }
 
 /** New-order alerts for the shop (Telegram and the alert inbox). Never throws. */
@@ -191,7 +223,7 @@ export async function alertNewOrder(orderId: number, summary: OrderSummary, stat
 export async function changeOrderStatus(id: number, to: OrderStatus): Promise<{ from: OrderStatus; invoice?: Awaited<ReturnType<typeof sendInvoice>> } | null> {
   const from = await db.transaction(async (tx) => {
     const [order] = await tx.select().from(orders).where(eq(orders.id, id)).for("update");
-    if (!order || !canChangeStatus(order.status, to)) return null;
+    if (!order || !canChangeStatus(order.status, to, order.paymentMethod)) return null;
     if (shouldRestock(order.status, to)) await restockOrders(tx, [id]);
     await tx.update(orders).set({ status: to }).where(eq(orders.id, id));
     return order.status;
@@ -223,7 +255,9 @@ export async function getOrderSummary(orderId: number): Promise<OrderSummary | n
     discount: order.discount,
     couponCode: order.couponCode,
     shipping: order.shipping,
+    codFee: order.codFee,
     total: order.total,
+    paymentMethod: order.paymentMethod,
     items: items.map((i) => ({ productName: i.productName, variantName: i.variantName, unitPrice: i.unitPrice, quantity: i.quantity })),
   };
 }
@@ -294,6 +328,8 @@ export type TrackedOrder = {
   delhiveryUrl: string | null;
   /** Link to pay, for unpaid orders. */
   payPath: string | null;
+  /** Cash on Delivery: the customer pays the total when it arrives. */
+  cod: boolean;
 };
 
 /** What a guest may see about their order: no address, phone or email. Null unless the contact matches. */
@@ -308,11 +344,12 @@ export async function findTrackedOrder(orderNumber: string, contact: string): Pr
     placedAt: fmt(order.createdAt),
     shippedAt: order.shippedAt ? fmt(order.shippedAt) : null,
     status: order.status,
-    steps: trackSteps(order.status),
+    steps: trackSteps(order.status, order.paymentMethod),
     total: order.total,
     items: items.map((i) => ({ name: `${i.productName} (${i.variantName})`, quantity: i.quantity })),
     trackingNumber: order.trackingNumber,
     delhiveryUrl: order.trackingNumber ? delhiveryTrackingUrl(order.trackingNumber) : null,
     payPath: order.status === "pending_payment" ? payPath(order.orderNumber) : null,
+    cod: order.paymentMethod === "cod",
   };
 }

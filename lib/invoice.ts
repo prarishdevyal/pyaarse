@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { OrderSummary } from "./notify/types";
+import type { PaymentMethod } from "./shipping";
 import { STORE_TIME_ZONE } from "./format";
 
 export type InvoiceData = OrderSummary & {
@@ -8,9 +9,10 @@ export type InvoiceData = OrderSummary & {
   store: { email: string; whatsapp: string; website: string };
 };
 
-/** Wording for a paid invoice vs. one the admin sends before payment. */
-export function invoiceLabels(paid: boolean) {
+/** Wording for a paid invoice vs. one sent before payment (online, or cash on delivery). */
+export function invoiceLabels(paid: boolean, method: PaymentMethod = "online") {
   if (paid) return { status: "Paid", total: "Total paid", note: "" };
+  if (method === "cod") return { status: "Cash on Delivery", total: "Pay on delivery", note: "Please pay this amount in cash when your order is delivered." };
   const note = "Please pay online (UPI, cards or net banking) using your payment link. Your order is prepared once payment is received.";
   return { status: "Payment due", total: "Amount to pay", note };
 }
@@ -58,7 +60,7 @@ export async function buildInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Pyaarse invoice ${invoiceNumber(d.orderNumber)}`);
   pdf.setAuthor("Pyaarse");
-  const labels = invoiceLabels(d.paid);
+  const labels = invoiceLabels(d.paid, d.paymentMethod);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const serif = await pdf.embedFont(StandardFonts.TimesRomanItalic);
@@ -141,6 +143,7 @@ export async function buildInvoicePdf(d: InvoiceData): Promise<Uint8Array> {
   total("Subtotal", pdfMoney(d.subtotal));
   if (d.discount > 0) total(`Discount${d.couponCode ? ` (${d.couponCode})` : ""}`, `- ${pdfMoney(d.discount)}`);
   total("Shipping", d.shipping === 0 ? "Free" : pdfMoney(d.shipping));
+  if (d.codFee > 0) total("COD charge", pdfMoney(d.codFee));
   y -= 4;
   total(labels.total, pdfMoney(d.total), true);
   if (labels.note) {

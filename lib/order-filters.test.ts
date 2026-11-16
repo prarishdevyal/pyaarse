@@ -45,6 +45,8 @@ describe("statusesMatching", () => {
   it("finds statuses by their name", () => {
     expect(statusesMatching("Shipped")).toEqual(["shipped"]);
     expect(statusesMatching("processing")).toEqual(["paid"]);
+    expect(statusesMatching("COD")).toEqual(["cod"]);
+    expect(statusesMatching("collect")).toEqual(["cod"]);
     expect(statusesMatching("deliv")).toEqual(["delivered"]);
     expect(statusesMatching("awaiting")).toEqual(["pending_payment"]);
     expect(statusesMatching("cancelled")).toEqual(["cancelled"]);

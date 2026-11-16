@@ -1,5 +1,6 @@
 "use client";
 
+import type { PaymentMethod } from "@/lib/shipping";
 import Link from "next/link";
 import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -21,6 +22,9 @@ export type ManagedOrder = {
   phone: string;
   total: number;
   status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  /** Statuses this order can be given (Cash on Delivery orders have "to collect" instead of awaiting payment/paid). */
+  statuses: OrderStatus[];
   createdAt: Date;
   adminNote: string;
   /** Shown when the row is opened. */
@@ -33,6 +37,7 @@ export type ManagedOrder = {
     discount: number;
     couponCode: string | null;
     shipping: number;
+    codFee: number;
     trackingNumber: string | null;
     payment: { status: string; method: string | null; test: boolean } | null;
   };
@@ -234,7 +239,7 @@ function RowStatus({ order, busy, onChange }: { order: ManagedOrder; busy: boole
       onChange={(e) => onChange(e.target.value as OrderStatus)}
       className="input w-auto py-1 text-sm"
     >
-      {ORDER_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+      {order.statuses.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
     </select>
   );
 }
@@ -295,7 +300,9 @@ function NoteCell({ order }: { order: ManagedOrder }) {
 /** The quick look under a row: what was ordered, where it goes, how it was paid and where it is. */
 function OrderDetails({ order }: { order: ManagedOrder }) {
   const d = order.details;
-  const payment = d.payment
+  const payment = order.paymentMethod === "cod"
+    ? order.status === "delivered" ? `Cash on Delivery: ${formatINR(order.total)} collected` : `Cash on Delivery: collect ${formatINR(order.total)}`
+    : d.payment
     ? d.payment.status === "created"
       ? "Online payment started, not completed"
       : `Paid online${d.payment.method ? ` by ${d.payment.method.replace(/_/g, " ")}` : ""}${d.payment.test ? " (test mode, no real money)" : ""}`
@@ -318,6 +325,7 @@ function OrderDetails({ order }: { order: ManagedOrder }) {
           <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatINR(d.subtotal)}</dd></div>
           {d.discount > 0 && <div className="flex justify-between text-[#1f8f4e]"><dt>Discount{d.couponCode ? ` (${d.couponCode})` : ""}</dt><dd>−{formatINR(d.discount)}</dd></div>}
           <div className="flex justify-between"><dt>Shipping</dt><dd>{d.shipping ? formatINR(d.shipping) : "Free"}</dd></div>
+          {d.codFee > 0 && <div className="flex justify-between"><dt>COD charge</dt><dd>{formatINR(d.codFee)}</dd></div>}
           <div className="flex justify-between font-medium text-charcoal"><dt>Total</dt><dd>{formatINR(order.total)}</dd></div>
         </dl>
       </div>

@@ -35,6 +35,7 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
   const cities = state ? INDIA_STATES[state] ?? [] : [];
   const [cityText, setCityText] = useState("");
   const [pinNote, setPinNote] = useState<{ text: string; ok: boolean } | null>(null);
+  const [payChoice, setPayChoice] = useState<"online" | "cod">("online");
 
   /** Six digits typed: fill in the state and city from the pincode (the customer can still change them). */
   async function lookupPincode(pin: string) {
@@ -96,11 +97,16 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
     }
     const f = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
     delete f.cityChoice;
+    delete f.paymentChoice;
     setError(undefined);
     setFieldErrors({});
     start(async () => {
-      const res = await checkout({ ...f, couponCode: quote?.ok && quote.couponCode ? quote.couponCode : "", items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })) });
-      if (res.ok) {
+      const res = await checkout({ ...f, paymentMethod: method, couponCode: quote?.ok && quote.couponCode ? quote.couponCode : "", items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })) });
+      if (res.ok && method === "cod") {
+        // Nothing to pay now: straight to the confirmation.
+        clear();
+        router.push(`/order-confirmed?n=${encodeURIComponent(res.orderNumber)}&t=${res.payToken}`);
+      } else if (res.ok) {
         // Straight to Cashfree. The cart is emptied behind the "taking you to payment" screen, so it never flashes.
         setLeaving(true);
         clear();
@@ -121,6 +127,9 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
   );
 
   const quote = data?.quote;
+  const cod = quote?.ok ? quote.cod : undefined;
+  // Cash on Delivery only while the order allows it (a coupon can take it under the minimum, for example).
+  const method = payChoice === "cod" && cod?.available ? "cod" : "online";
 
   return (
     <form onSubmit={onSubmit} noValidate className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">
@@ -238,13 +247,30 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
           onApply={() => setCoupon(couponInput.trim())}
           onRemove={() => { setCoupon(""); setCouponInput(""); }}
         />
-        {quote?.ok ? <Totals {...quote} /> : quote ? <p className="text-sm text-brand">{quote.error}</p> : <p className="text-sm text-taupe">Calculating…</p>}
+        {quote?.ok ? (
+          <Totals {...quote} {...(method === "cod" && cod?.available ? { codFee: cod.fee, total: cod.total } : {})} />
+        ) : quote ? <p className="text-sm text-brand">{quote.error}</p> : <p className="text-sm text-taupe">Calculating…</p>}
+        {cod && (cod.available || cod.reason) && (
+          <fieldset className="mt-5 space-y-2">
+            <legend className="mb-2 font-medium">Payment</legend>
+            <PayOption value="online" checked={method === "online"} onChange={setPayChoice} title="Pay online" detail="UPI, cards or net banking" />
+            <PayOption
+              value="cod"
+              checked={method === "cod"}
+              onChange={setPayChoice}
+              disabled={!cod.available}
+              title="Cash on Delivery"
+              detail={cod.available ? `Pay in cash when it arrives (+${formatINR(cod.fee)} COD charge)` : cod.reason!}
+            />
+          </fieldset>
+        )}
         <div className="mt-5 rounded-xl bg-blush p-4 text-sm">
-          <strong>How payment works:</strong> {paymentNote}
+          <strong>How payment works:</strong>{" "}
+          {method === "cod" && cod?.available ? `You pay ${formatINR(cod.total)} in cash when your order arrives. We'll email you the order details.` : paymentNote}
         </div>
         {error && <p className="mt-4 text-sm text-brand" role="alert">{error}</p>}
         <button type="submit" className="btn-primary mt-5 w-full" disabled={pending || !quote?.ok}>
-          {pending ? "Placing order…" : "Place order and pay"}
+          {pending ? "Placing order…" : method === "cod" ? "Place order" : "Place order and pay"}
         </button>
         <p className="mt-3 text-center text-xs text-taupe">
           By placing your order you agree to our{" "}
@@ -253,6 +279,25 @@ export function CheckoutForm({ user, paymentNote }: { user: Prefill; paymentNote
         </p>
       </aside>
     </form>
+  );
+}
+
+function PayOption({ value, checked, onChange, disabled, title, detail }: {
+  value: "online" | "cod";
+  checked: boolean;
+  onChange: (v: "online" | "cod") => void;
+  disabled?: boolean;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <label className={`flex items-start gap-3 rounded-xl border p-3 text-sm transition ${checked ? "border-brand bg-blush" : "border-sand"} ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-brand"}`}>
+      <input type="radio" name="paymentChoice" value={value} checked={checked} disabled={disabled} onChange={() => onChange(value)} className="mt-0.5 h-4 w-4 accent-brand" />
+      <span>
+        <span className="block font-medium">{title}</span>
+        <span className="block text-taupe">{detail}</span>
+      </span>
+    </label>
   );
 }
 

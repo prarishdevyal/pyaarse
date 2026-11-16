@@ -1,14 +1,34 @@
 import { describe, expect, it } from "vitest";
 import { buildContactTelegramMessage, buildTelegramMessage } from "./telegram";
-import { buildShippedEmail, buildPasswordResetEmail, buildAdminAddedEmail, buildAdminInviteEmail, buildAdminOrderEmail, buildInvoiceEmail, emailProvider, mailFrom, orderAlertEmail, smtpOptions } from "./email";
+import { buildShippedEmail, buildPasswordResetEmail, buildAdminAddedEmail, buildAdminInviteEmail, buildAdminOrderEmail, buildCodOrderEmail, buildInvoiceEmail, emailProvider, mailFrom, orderAlertEmail, smtpOptions } from "./email";
 import type { OrderSummary } from "./types";
 
 const order: OrderSummary = {
   orderNumber: "PY1042", customerName: "Asha <b>", email: "asha@example.com", phone: "9876543210",
   addressLine: "12 MG Road", city: "Pune", state: "Maharashtra", pincode: "411001", notes: "Gift wrap please",
-  subtotal: 998, discount: 0, couponCode: null, shipping: 79, total: 1077,
+  subtotal: 998, discount: 0, couponCode: null, shipping: 79, codFee: 0, total: 1077, paymentMethod: "online",
   items: [{ productName: "Rose Candle", variantName: "200g", unitPrice: 499, quantity: 2 }],
 };
+
+describe("Cash on Delivery orders", () => {
+  const cod: OrderSummary = { ...order, codFee: 48, total: 1125, paymentMethod: "cod" };
+  it("tell the shop how much cash to collect, with the COD charge", () => {
+    const tg = buildTelegramMessage(cod);
+    expect(tg).toContain("COD charge: ₹48");
+    expect(tg).toContain("Cash on Delivery: collect ₹1,125");
+    const mail = buildAdminOrderEmail(cod);
+    expect(mail.text).toContain("Cash on Delivery charge: ₹48");
+    expect(mail.text).toContain("Cash on Delivery: collect ₹1,125");
+    expect(buildTelegramMessage(order)).not.toContain("COD");
+  });
+  it("confirm the order to the customer with the amount to pay on delivery", () => {
+    const e = buildCodOrderEmail(cod, "INV-PY1042");
+    expect(e.subject).toBe("Order confirmed: PY1042, pay ₹1,125 on delivery");
+    expect(e.text).toContain("Please pay ₹1,125 in cash when it's delivered.");
+    expect(e.html).toContain("Cash on Delivery charge");
+    expect(e.html).toContain("Asha &lt;b&gt;");
+  });
+});
 
 describe("buildTelegramMessage", () => {
   const msg = buildTelegramMessage(order, "https://admin.pyaarse.net/orders/1");
