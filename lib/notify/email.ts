@@ -1,3 +1,5 @@
+import net from "node:net";
+import tls from "node:tls";
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
 import { formatINR } from "../format";
@@ -227,17 +229,34 @@ export function mailFrom(env: Record<string, string | undefined> = process.env):
   return "Pyaarse <orders@pyaarse.net>";
 }
 
+type SocketResult = { connection: net.Socket; secured: boolean };
+
+/**
+ * Opens the mail server connection by host name. nodemailer would otherwise look up the IP
+ * itself and connect to that, which Cloudflare Workers refuse ("proxy request failed,
+ * cannot connect to the specified address").
+ */
+export function openSmtpSocket(o: { host: string; port: number; secure: boolean }, callback: (err: Error | null, result?: SocketResult) => void): void {
+  const opts = { host: o.host, port: o.port };
+  const socket: net.Socket = o.secure
+    ? tls.connect({ ...opts, servername: o.host }, () => callback(null, { connection: socket, secured: true }))
+    : net.connect(opts, () => callback(null, { connection: socket, secured: false }));
+  socket.once("error", (err) => callback(err));
+}
+
 /** nodemailer options; timeouts keep a slow mail server from holding up checkout. */
 export function smtpOptions(env: Record<string, string | undefined> = process.env) {
   const port = Number(env.SMTP_PORT || 587);
+  const secure = port === 465;
   return {
     host: env.SMTP_HOST,
     port,
-    secure: port === 465,
+    secure,
     auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 15_000,
+    getSocket: (_o: unknown, cb: (err: Error | null, result?: SocketResult) => void) => openSmtpSocket({ host: env.SMTP_HOST ?? "", port, secure }, cb),
   };
 }
 
